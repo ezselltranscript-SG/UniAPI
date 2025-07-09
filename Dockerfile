@@ -3,11 +3,14 @@ FROM python:3.9-slim
 # Evitar interacciones durante la instalación de paquetes
 ENV DEBIAN_FRONTEND=noninteractive
 
+# Agregar repositorio non-free para unrar-free
+RUN echo "deb http://deb.debian.org/debian bookworm contrib non-free" > /etc/apt/sources.list.d/contrib-non-free.list
+
 # Instalar dependencias del sistema
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libreoffice \
     poppler-utils \
-    unrar \
+    unrar-free \
     libmagic1 \
     p7zip-full \
     # Dependencias para patool
@@ -15,7 +18,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     lzip \
     lzop \
     arj \
-    unace \
     # Limpiar caché de apt para reducir el tamaño de la imagen
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
