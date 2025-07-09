@@ -13,6 +13,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     unrar-free \
     libmagic1 \
     p7zip-full \
+    # Tesseract OCR para el servicio OCR
+    tesseract-ocr \
+    tesseract-ocr-spa \
+    tesseract-ocr-eng \
     # Dependencias para patool
     cabextract \
     lzip \

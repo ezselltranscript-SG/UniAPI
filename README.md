@@ -12,7 +12,10 @@ This project unifies various document processing, transcription, and letter gene
 6. **Word to PDF** - Converts Word documents to PDF while maintaining the original formatting
 7. **File Merger** - Merges multiple PDF or DOCX files contained in a compressed archive
 8. **PDF to Image** - Converts PDF files to PNG or JPEG images
-9. *Additional services to be added*
+9. **OCR** - Performs Optical Character Recognition on images and PDFs
+10. **Image to PDF** - Converts images to PDF format
+11. **PDF Text Extractor** - Extracts text from PDF files
+12. *Additional services to be added*
 
 ### Service Details
 
@@ -64,6 +67,32 @@ Converts PDF files to PNG or JPEG images.
 - **Output Format**: 
   - Single page PDF: Direct image download
   - Multi-page PDF: ZIP file containing all pages as separate images
+
+#### OCR
+Performs Optical Character Recognition on images and PDFs to extract text.
+- **Endpoint for Images**: `/ocr/image/`
+- **Endpoint for PDFs**: `/ocr/pdf/`
+- **Parameters**: 
+  - `lang` - Language for OCR (default: spa for Spanish, can use eng for English)
+  - `pages_only` - For PDFs, returns only text by pages without full text (default: false)
+- **Output Format**: JSON with extracted text
+
+#### Image to PDF
+Converts images to PDF format.
+- **Endpoint for Single Image**: `/image-to-pdf/convert/`
+- **Endpoint for Multiple Images**: `/image-to-pdf/convert-multiple/`
+- **Parameters**: `page_size` - Size of PDF page (A4 or letter, default: A4)
+- **Output Format**: PDF file
+
+#### PDF Text Extractor
+Extracts text from PDF files without OCR (for PDFs with embedded text).
+- **Endpoint for Basic Extraction**: `/pdf-text-extractor/extract/`
+- **Endpoint for Extraction with Metadata**: `/pdf-text-extractor/extract-with-metadata/`
+- **Endpoint for Text File Output**: `/pdf-text-extractor/extract-to-file/`
+- **Parameters**: 
+  - `by_page` - Return text separated by pages (default: false)
+  - `format` - For text file output, format of the output file (currently only txt)
+- **Output Format**: JSON with extracted text or text file
 
 ## Requirements
 
