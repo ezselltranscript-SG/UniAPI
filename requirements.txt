@@ -1,0 +1,28 @@
+# Framework web y servidor
+fastapi>=0.104.0
+uvicorn>=0.23.2
+python-multipart>=0.0.6
+pydantic>=2.4.2
+python-dotenv>=1.0.0
+
+# Manipulación de archivos PDF
+PyPDF2>=3.0.1
+pypdf>=3.15.1
+reportlab>=4.0.4  # Para crear PDF con encabezados personalizados
+pdf2image>=1.16.3  # Para convertir PDF a imágenes
+
+# Procesamiento de imágenes
+Pillow>=10.0.0
+
+# Manipulación de documentos Word
+python-docx>=0.8.11
+docx2pdf>=0.1.8
+docxcompose>=1.4.0
+
+# Manejo de archivos comprimidos
+zipfile36>=0.1.3  # Para compatibilidad en Python 3.6
+patool>=1.12
+rarfile>=4.0
+
+# Utilidades
+typing-extensions>=4.7.0  # Para soporte de Annotated en Python < 3.9
