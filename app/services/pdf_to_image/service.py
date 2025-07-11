@@ -35,21 +35,7 @@ class PDFToImageService:
         except Exception as e:
             raise Exception(f"Error al convertir PDF a imágenes: {str(e)}")
             
-        # Si hay una sola página, devolver la imagen directamente
-        if len(images) == 1:
-            img_bytes = io.BytesIO()
-            images[0].save(img_bytes, format=format.upper())
-            img_bytes.seek(0)
-            
-            return {
-                "is_single_image": True,
-                "content": img_bytes,
-                "media_type": f"image/{format}",
-                "filename": f"converted.{format}",
-                "page_count": 1
-            }
-            
-        # Si hay múltiples páginas, crear un archivo ZIP
+        # Crear un archivo ZIP con todas las imágenes
         zip_buffer = io.BytesIO()
         with zipfile.ZipFile(zip_buffer, "w") as zip_file:
             for i, image in enumerate(images):
