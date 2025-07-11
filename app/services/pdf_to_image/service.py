@@ -56,7 +56,7 @@ class PDFToImageService:
                 img_io = io.BytesIO()
                 image.save(img_io, format=format.upper())
                 img_io.seek(0)
-                zip_file.writestr(f"page_{i+1}.{format}", img_io.read())
+                zip_file.writestr(f"page_{i+1}.{format}", img_io.getvalue())
                 
         zip_buffer.seek(0)
         
