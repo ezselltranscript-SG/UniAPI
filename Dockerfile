@@ -3,10 +3,7 @@ FROM python:3.9-slim
 # Evitar interacciones durante la instalación de paquetes
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Agregar repositorios necesarios para fuentes no libres
-RUN echo "deb http://deb.debian.org/debian bookworm main contrib non-free non-free-firmware" > /etc/apt/sources.list.d/non-free.list
-
-# Aceptar EULA de Microsoft Fonts automáticamente
+# Configurar repositorios y aceptar EULA de Microsoft Fonts
 RUN apt-get update && \
     apt-get install -y --no-install-recommends debconf-utils && \
     echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | debconf-set-selections
