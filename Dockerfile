@@ -3,10 +3,15 @@ FROM python:3.9-slim
 # Evitar interacciones durante la instalación de paquetes
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Agregar repositorio non-free para unrar-free
-RUN echo "deb http://deb.debian.org/debian bookworm contrib non-free" > /etc/apt/sources.list.d/contrib-non-free.list
+# Agregar repositorios necesarios para fuentes no libres
+RUN echo "deb http://deb.debian.org/debian bookworm main contrib non-free non-free-firmware" > /etc/apt/sources.list.d/non-free.list
 
-# Instalar dependencias del sistema
+# Aceptar EULA de Microsoft Fonts automáticamente
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends debconf-utils && \
+    echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | debconf-set-selections
+
+# Instalar dependencias del sistema, incluyendo fuentes de Microsoft
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libreoffice \
     poppler-utils \
@@ -22,6 +27,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     lzip \
     lzop \
     arj \
+    # Fuentes de Microsoft y configuración
+    ttf-mscorefonts-installer \
+    fontconfig \
+    && fc-cache -f -v \
     # Limpiar caché de apt para reducir el tamaño de la imagen
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
