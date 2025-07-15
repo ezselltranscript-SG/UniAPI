@@ -172,7 +172,7 @@ class WordToPdfService:
             return None
     
     @staticmethod
-    def convert_to_pdf(docx_path: str, output_dir: str) -> Optional[str]:
+    def convert_docx_to_pdf(docx_path: str, output_dir: str) -> Optional[str]:
         """
         Convierte un documento Word a PDF usando LibreOffice de manera simple.
         
@@ -279,7 +279,7 @@ class WordToPdfService:
             logger.info(f"Directorio para PDF creado: {pdf_output_dir}")
             
             # Paso 2: Convertir a PDF usando LibreOffice
-            output_pdf = WordToPdfService.convert_to_pdf(modified_docx, pdf_output_dir)
+            output_pdf = WordToPdfService.convert_docx_to_pdf(modified_docx, pdf_output_dir)
             
             if not output_pdf:
                 logger.error(f"Error al convertir {modified_docx}")
