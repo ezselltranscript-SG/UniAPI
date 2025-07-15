@@ -184,6 +184,9 @@ class WordToPdfService:
             Path to PDF file or None if error
         """
         try:
+            # Asegurarse de que output_dir sea un directorio válido
+            os.makedirs(output_dir, exist_ok=True)
+            
             # Nombre base del archivo sin extensión
             base_name = os.path.basename(docx_path)
             
@@ -245,6 +248,7 @@ class WordToPdfService:
         """
         # Crear un directorio temporal para trabajar
         temp_dir = tempfile.mkdtemp()
+        logger.info(f"Directorio temporal creado: {temp_dir}")
         
         try:
             # Obtener el nombre base del archivo sin extensión
@@ -258,6 +262,8 @@ class WordToPdfService:
             with open(word_path, "wb") as f:
                 f.write(word_data)
             
+            logger.info(f"Documento Word guardado en: {word_path}")
+            
             # Paso 1: Modificar el documento para eliminar encabezados y estandarizar fuentes
             result = WordToPdfService.modify_document_headers(word_path)
             if not result or not result[0]:
@@ -266,12 +272,19 @@ class WordToPdfService:
             
             modified_docx, base_code = result
             
+            # Crear un subdirectorio para la salida del PDF
+            pdf_output_dir = os.path.join(temp_dir, "pdf_output")
+            os.makedirs(pdf_output_dir, exist_ok=True)
+            logger.info(f"Directorio para PDF creado: {pdf_output_dir}")
+            
             # Paso 2: Convertir a PDF usando LibreOffice
-            output_pdf = WordToPdfService.convert_to_pdf(modified_docx, temp_dir)
+            output_pdf = WordToPdfService.convert_to_pdf(modified_docx, pdf_output_dir)
             
             if not output_pdf:
                 logger.error(f"Error al convertir {modified_docx}")
                 raise Exception("Error al convertir el documento")
+            
+            logger.info(f"PDF generado en: {output_pdf}")
             
             # Paso 3: Modificar el PDF para añadir encabezados correctos en cada página
             modified_pdf = WordToPdfService.add_page_headers_to_pdf(output_pdf, base_code)
