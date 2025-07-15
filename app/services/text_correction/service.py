@@ -51,9 +51,9 @@ class TextCorrectionService:
                 logger.warning("No se encontraron nombres de ciudades para corregir el texto")
                 return text
             
-            # Extraer palabras y puntuación
-            # Patrón que captura palabras y signos de puntuación por separado
-            pattern = r'([\w]+|[^\w\s])'
+            # Extraer palabras, puntuación y espacios
+            # Patrón que captura palabras, signos de puntuación y espacios por separado
+            pattern = r'([\w]+|[^\w\s]|\s+)'
             tokens = re.findall(pattern, text)
             result = []
             
@@ -61,7 +61,7 @@ class TextCorrectionService:
             while i < len(tokens):
                 token = tokens[i]
                 
-                # Si no es una palabra, mantenerla sin cambios
+                # Si no es una palabra (es puntuación o espacio), mantenerla sin cambios
                 if not re.match(r'^[\w]+$', token):
                     result.append(token)
                     i += 1
@@ -99,20 +99,22 @@ class TextCorrectionService:
                 else:
                     # Si no hay coincidencia compuesta, intentar con una sola palabra
                     word = token
+                    # Usar partial_ratio para mejorar coincidencias parciales
                     best_match = max(
                         towns,
-                        key=lambda town: fuzz.ratio(word.lower(), town.lower())
+                        key=lambda town: max(fuzz.ratio(word.lower(), town.lower()), 
+                                            fuzz.partial_ratio(word.lower(), town.lower()))
                     )
-                    similarity = fuzz.ratio(word.lower(), best_match.lower())
+                    # Usar el mejor entre ratio y partial_ratio
+                    ratio_score = fuzz.ratio(word.lower(), best_match.lower())
+                    partial_score = fuzz.partial_ratio(word.lower(), best_match.lower())
+                    similarity = max(ratio_score, partial_score)
                     result.append(best_match if similarity >= threshold else word)
                     i += 1
             
-            # Reconstruir el texto con espacios correctos
-            corrected_text = ''
-            for j, token in enumerate(result):
-                if j > 0 and re.match(r'^[\w]+$', token) and re.match(r'^[\w]+$', result[j-1]):
-                    corrected_text += ' '
-                corrected_text += token
+            # No necesitamos reconstruir con espacios adicionales ya que ahora
+            # preservamos los espacios originales del texto
+            corrected_text = ''.join(result)
                 
             return corrected_text
         except Exception as e:
