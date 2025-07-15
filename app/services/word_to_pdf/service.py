@@ -189,12 +189,14 @@ class WordToPdfService:
             
             # Nombre base del archivo sin extensión
             base_name = os.path.basename(docx_path)
+            base_name_without_ext = os.path.splitext(base_name)[0]
+            expected_pdf = os.path.join(output_dir, f"{base_name_without_ext}.pdf")
             
             # Comando simple para convertir a PDF
             cmd = [
                 "libreoffice",
                 "--headless",
-                "--convert-to", "pdf",
+                "--convert-to", "pdf:writer_pdf_Export",
                 "--outdir", output_dir,
                 docx_path
             ]
@@ -211,9 +213,8 @@ class WordToPdfService:
                 logger.warning(f"Error: {process.stderr}")
             
             # Verificar el archivo PDF generado
-            expected_pdf = os.path.join(output_dir, f"{base_name}.pdf")
-            
             if os.path.exists(expected_pdf):
+                logger.info(f"PDF generado correctamente: {expected_pdf}")
                 return expected_pdf
             else:
                 # Listar archivos en el directorio para diagnóstico
@@ -222,7 +223,7 @@ class WordToPdfService:
                 
                 # Buscar cualquier PDF generado
                 for file in files:
-                    if file.endswith(".pdf") and file.startswith(os.path.basename(docx_path).split("_")[0]):
+                    if file.endswith(".pdf"):
                         pdf_path = os.path.join(output_dir, file)
                         logger.info(f"PDF encontrado: {pdf_path}")
                         return pdf_path
@@ -284,6 +285,10 @@ class WordToPdfService:
                 logger.error(f"Error al convertir {modified_docx}")
                 raise Exception("Error al convertir el documento")
             
+            if not os.path.isfile(output_pdf):
+                logger.error(f"La ruta de salida no es un archivo válido: {output_pdf}")
+                raise Exception("Error: la ruta de salida del PDF no es un archivo válido")
+                
             logger.info(f"PDF generado en: {output_pdf}")
             
             # Paso 3: Modificar el PDF para añadir encabezados correctos en cada página
