@@ -4,6 +4,7 @@ import shutil
 import subprocess
 import logging
 import io
+import re
 from typing import Dict, Any, Tuple, Optional
 from docx import Document
 from docx.shared import Pt
@@ -107,6 +108,7 @@ class WordToPdfService:
         """
         Modifica un PDF para añadir encabezados diferentes a cada página
         con el formato exacto base_code_Part1, base_code_Part2, etc.
+        Mantiene el código base exactamente como está, sin modificarlo.
         
         Args:
             pdf_path: Ruta al archivo PDF
@@ -116,59 +118,63 @@ class WordToPdfService:
             Path to modified PDF or None if error
         """
         try:
-            # Crear un directorio para el PDF modificado
-            output_dir = os.path.dirname(pdf_path)
-            pdf_filename = os.path.basename(pdf_path)
-            output_pdf = os.path.join(output_dir, f"header_{pdf_filename}")
+            # Crear un nuevo PDF con los encabezados correctos
+            output_pdf = os.path.join(os.path.dirname(pdf_path), f"headers_{os.path.basename(pdf_path)}")
             
             # Abrir el PDF original
             reader = PdfReader(pdf_path)
             writer = PdfWriter()
             
-            # Procesar cada página
+            # Para cada página, añadir el encabezado correcto
             for i, page in enumerate(reader.pages):
-                # Número de parte (1-indexed)
-                part_number = i + 1
-                
-                # Crear un PDF temporal para el encabezado
+                # Crear un PDF en memoria con el encabezado
                 packet = io.BytesIO()
                 can = canvas.Canvas(packet, pagesize=letter)
                 
-                # Configurar la fuente y el tamaño
-                can.setFont("Times-Roman", 10)
+                # Dibujar un rectángulo blanco para cubrir completamente cualquier encabezado existente
+                can.setFillColorRGB(1, 1, 1)  # Color blanco
+                # Bajar el rectángulo y el texto unos 20 puntos
+                can.rect(0, 750, 612, 28, fill=True, stroke=False)  # 750 en vez de 770
                 
-                # Añadir el texto del encabezado en la parte superior derecha
+                # Configurar el encabezado con el número de parte correcto
+                part_number = i + 1
                 header_text = f"{base_code}_Part{part_number}"
-                can.drawRightString(550, 780, header_text)
                 
-                # Guardar el canvas
+                # Añadir el texto del encabezado en la posición correcta (esquina superior izquierda, pero más abajo)
+                can.setFillColorRGB(0, 0, 0)  # Color negro para el texto
+                can.setFont("Helvetica", 10)
+                can.drawString(25, 765, header_text)  # 765 en vez de 785
                 can.save()
                 
                 # Mover al inicio del BytesIO
                 packet.seek(0)
-                overlay = PdfReader(packet)
+                watermark = PdfReader(packet)
                 
                 # Fusionar la página original con el encabezado
-                page.merge_page(overlay.pages[0])
-                
-                # Añadir la página modificada al nuevo PDF
+                page.merge_page(watermark.pages[0])
                 writer.add_page(page)
+                
+                logger.info(f"Añadido encabezado a página {part_number}: {header_text}")
             
             # Guardar el PDF modificado
-            with open(output_pdf, "wb") as f:
-                writer.write(f)
+            with open(output_pdf, "wb") as output_stream:
+                writer.write(output_stream)
             
-            logger.info(f"PDF con encabezados añadidos guardado en: {output_pdf}")
-            return output_pdf
+            logger.info(f"PDF con encabezados modificados guardado en: {output_pdf}")
             
+            # Reemplazar el PDF original con el modificado
+            shutil.move(output_pdf, pdf_path)
+            
+            return pdf_path
+        
         except Exception as e:
             logger.error(f"Error al añadir encabezados al PDF: {str(e)}")
             return None
     
     @staticmethod
-    def convert_with_libreoffice(docx_path: str, output_dir: str) -> Optional[str]:
+    def convert_to_pdf(docx_path: str, output_dir: str) -> Optional[str]:
         """
-        Convierte un documento Word a PDF usando LibreOffice
+        Convierte un documento Word a PDF usando LibreOffice de manera simple.
         
         Args:
             docx_path: Ruta al documento Word
@@ -178,47 +184,19 @@ class WordToPdfService:
             Path to PDF file or None if error
         """
         try:
-            # Asegurarse de que la ruta es absoluta
-            docx_path = os.path.abspath(docx_path)
-            output_dir = os.path.abspath(output_dir)
-            
-            # Crear el directorio de salida si no existe
-            os.makedirs(output_dir, exist_ok=True)
-            
-            # Construir el comando para LibreOffice
-            # El formato es: libreoffice --headless --convert-to pdf --outdir [output_dir] [input_file]
+            # Nombre base del archivo sin extensión
             base_name = os.path.basename(docx_path)
-            logger.info(f"Convirtiendo {base_name} a PDF con LibreOffice")
             
-            # En Windows, buscar la ubicación de LibreOffice
-            libreoffice_paths = [
-                r"C:\Program Files\LibreOffice\program\soffice.exe",
-                r"C:\Program Files (x86)\LibreOffice\program\soffice.exe",
-                "/usr/bin/libreoffice",
-                "/usr/bin/soffice",
-                "/usr/lib/libreoffice/program/soffice"
-            ]
-            
-            libreoffice_path = None
-            for path in libreoffice_paths:
-                if os.path.exists(path):
-                    libreoffice_path = path
-                    break
-            
-            if not libreoffice_path:
-                logger.error("No se encontró LibreOffice instalado")
-                return None
-            
-            # Construir el comando
+            # Comando simple para convertir a PDF
             cmd = [
-                libreoffice_path,
+                "libreoffice",
                 "--headless",
                 "--convert-to", "pdf",
                 "--outdir", output_dir,
                 docx_path
             ]
             
-            logger.info(f"Ejecutando comando: {' '.join(cmd)}")
+            logger.info(f"Ejecutando: {' '.join(cmd)}")
             
             # Ejecutar el comando
             process = subprocess.run(cmd, capture_output=True, text=True)
@@ -289,7 +267,7 @@ class WordToPdfService:
             modified_docx, base_code = result
             
             # Paso 2: Convertir a PDF usando LibreOffice
-            output_pdf = WordToPdfService.convert_with_libreoffice(modified_docx, temp_dir)
+            output_pdf = WordToPdfService.convert_to_pdf(modified_docx, temp_dir)
             
             if not output_pdf:
                 logger.error(f"Error al convertir {modified_docx}")
