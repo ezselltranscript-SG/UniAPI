@@ -4,7 +4,8 @@ FROM python:3.9-slim
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Configurar repositorios y aceptar EULA de Microsoft Fonts
-RUN apt-get update && \
+RUN echo "deb http://deb.debian.org/debian/ bookworm main contrib" > /etc/apt/sources.list.d/contrib.list && \
+    apt-get update && \
     apt-get install -y --no-install-recommends debconf-utils && \
     echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | debconf-set-selections
 
