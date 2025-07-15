@@ -30,3 +30,8 @@ rarfile>=4.0
 
 # Utilidades
 typing-extensions>=4.7.0  # Para soporte de Annotated en Python < 3.9
+
+# Supabase y coincidencia difusa
+supabase>=1.0.3
+fuzzywuzzy>=0.18.0
+python-Levenshtein>=0.21.1  # Acelera fuzzywuzzy

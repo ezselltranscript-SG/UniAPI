@@ -15,7 +15,8 @@ This project unifies various document processing, transcription, and letter gene
 9. **OCR** - Performs Optical Character Recognition on images and PDFs
 10. **Image to PDF** - Converts images to PDF format
 11. **PDF Text Extractor** - Extracts text from PDF files
-12. *Additional services to be added*
+12. **Text Correction** - Corrige nombres de ciudades en textos usando coincidencia difusa
+13. *Additional services to be added*
 
 ### Service Details
 
@@ -94,15 +95,43 @@ Extracts text from PDF files without OCR (for PDFs with embedded text).
   - `format` - For text file output, format of the output file (currently only txt)
 - **Output Format**: JSON with extracted text or text file
 
+#### Text Correction
+Corrige nombres de ciudades en textos utilizando algoritmos de coincidencia difusa (fuzzy matching).
+- **Endpoint**: `/text-correction/correct/`
+- **Parameters**: 
+  - `text` - Texto a corregir
+  - `threshold` - Umbral de similitud (0-100, default: 85)
+- **Requirements**: Requiere configuración de Supabase con tabla 'towns'
+- **Output Format**: JSON con el texto corregido
+
 ## Requirements
 
 - Python 3.8+
 - Dependencies listed in `requirements.txt`
+- Supabase account (for Text Correction service)
 
 ## Installation
 
 ```bash
 pip install -r requirements.txt
+```
+
+### Environment Variables
+
+Create a `.env` file in the root directory with the following variables:
+
+```
+# API Configuration
+API_HOST=0.0.0.0
+API_PORT=8000
+API_RELOAD=True
+
+# CORS Settings
+CORS_ORIGINS=*
+
+# Supabase Configuration (for Text Correction service)
+SUPABASE_URL=your_supabase_url
+SUPABASE_KEY=your_supabase_key
 ```
 
 ## Execution

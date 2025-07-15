@@ -16,6 +16,7 @@ from app.services.pdf_to_image.router import router as pdf_to_image_router
 from app.services.ocr.router import router as ocr_router
 from app.services.image_to_pdf.router import router as image_to_pdf_router
 from app.services.pdf_text_extractor.router import router as pdf_text_extractor_router
+from app.services.text_correction.router import router as text_correction_router
 # Import additional service routers here as they are added
 
 # Create main FastAPI application
@@ -52,6 +53,7 @@ def read_root():
             {"name": "OCR", "endpoint": "/ocr"},
             {"name": "Image to PDF", "endpoint": "/image-to-pdf"},
             {"name": "PDF Text Extractor", "endpoint": "/pdf-text-extractor"},
+            {"name": "Text Correction", "endpoint": "/text-correction"},
             # Add other services here as they are implemented
         ],
         "documentation": "/docs"
@@ -69,6 +71,7 @@ app.include_router(pdf_to_image_router, prefix="/pdf-to-image", tags=["PDF to Im
 app.include_router(ocr_router, prefix="/ocr", tags=["OCR"])
 app.include_router(image_to_pdf_router, prefix="/image-to-pdf", tags=["Image to PDF"])
 app.include_router(pdf_text_extractor_router, prefix="/pdf-text-extractor", tags=["PDF Text Extractor"])
+app.include_router(text_correction_router, prefix="/text-correction", tags=["Text Correction"])
 # Include additional service routers here as they are added
 
 if __name__ == "__main__":

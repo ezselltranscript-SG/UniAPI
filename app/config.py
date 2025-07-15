@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+from supabase import create_client
 
 # Cargar variables de entorno desde .env
 load_dotenv()
@@ -19,3 +20,8 @@ API_RELOAD = os.getenv("API_RELOAD", "True").lower() == "true"
 
 # CORS settings
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*").split(",")
+
+# Supabase configuration
+SUPABASE_URL = os.getenv("SUPABASE_URL", "")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_URL and SUPABASE_KEY else None
