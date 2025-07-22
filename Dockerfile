@@ -25,6 +25,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     lzip \
     lzop \
     arj \
+    # Dependencias para OpenCV (shower_cropper)
+    libgl1 \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
     # Fuentes de Microsoft y configuración
     ttf-mscorefonts-installer \
     fontconfig \
