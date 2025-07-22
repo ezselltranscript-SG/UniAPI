@@ -28,8 +28,8 @@ class ShowerCropperService:
         print(f"Original image size: {width}x{height} pixels")
 
         # Fixed crop boundaries based on visual inspection of form layout
-        top = int(height * 0.40)     # ~32.5% from top
-        bottom = int(height * 0.83)  # ~87.5% from top
+        top = int(height * 0.48)     # ~32.5% from top
+        bottom = int(height * 0.84)  # ~87.5% from top
         text_box = (0, top, width, bottom)
 
         print(f"Cropping fixed text area: {text_box}")
