@@ -107,9 +107,11 @@ Corrige nombres de ciudades en textos utilizando algoritmos de coincidencia difu
 
 #### Shower Cropper
 Recorta automáticamente el área donde típicamente aparece el texto manuscrito o rellenado en formularios, usando proporciones fijas.
-- **Endpoint**: `/shower-cropper/crop-shower/`
-- **Features**: Utiliza proporciones fijas optimizadas para formularios estándar (recorta desde 32.5% hasta 87.5% de la altura)
-- **Output Format**: Archivo ZIP conteniendo la imagen recortada (ejemplo: `image_text_area.jpg`)
+- **Endpoints**: 
+  - `/shower-cropper/crop-shower/` - Para formularios tipo shower (recorta desde 32.5% hasta 87.5% de la altura)
+  - `/shower-cropper/crop-obituaries/` - Para formularios de obituarios (recorta desde 25% hasta 81% de la altura)
+- **Features**: Utiliza proporciones fijas optimizadas para diferentes tipos de formularios
+- **Output Format**: Archivo ZIP conteniendo la imagen recortada (ejemplo: `image_text_area.jpg` o `image_obituary_area.jpg`)
 - **Requirements**: Requiere Pillow para el procesamiento de imágenes
 
 ## Requirements

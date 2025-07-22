@@ -70,3 +70,50 @@ async def crop_to_fixed_area(
 async def health_check():
     """Endpoint para verificar el estado del servicio"""
     return {"status": "OK", "service": "Shower Cropper"}
+
+
+@router.post("/crop-obituaries/", summary="Crop image to obituaries area")
+async def crop_to_obituaries_area(
+    image_file: Annotated[UploadFile, File(description="Image file to crop")]
+):
+    """Crop an image to a fixed position optimized for obituaries layout.
+    
+    - **image_file**: The image file to crop (PNG, JPG, JPEG)
+    
+    The image will be cropped to a fixed area based on standard obituaries form proportions,
+    typically where the main content appears (25% to 81% of the height).
+    
+    Returns a ZIP file containing the cropped part.
+    """
+    try:
+        # Validate file type
+        if not image_file.filename:
+            raise HTTPException(status_code=400, detail="No filename provided")
+        
+        valid_extensions = ['.png', '.jpg', '.jpeg']
+        file_ext = os.path.splitext(image_file.filename.lower())[1]
+        if file_ext not in valid_extensions:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Unsupported file format. Supported formats: {', '.join(valid_extensions)}"
+            )
+        
+        # Read the image file
+        content = await image_file.read()
+        
+        # Process the image using the service
+        try:
+            result = ShowerCropperService.crop_fixed_area_obituaries(content, image_file.filename)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error processing image: {str(e)}")
+        
+        # Return the ZIP file as a streaming response
+        return StreamingResponse(
+            result["zip_buffer"],
+            media_type="application/zip",
+            headers={"Content-Disposition": f"attachment; filename={result['filename']}"}
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
