@@ -16,7 +16,8 @@ This project unifies various document processing, transcription, and letter gene
 10. **Image to PDF** - Converts images to PDF format
 11. **PDF Text Extractor** - Extracts text from PDF files
 12. **Text Correction** - Corrige nombres de ciudades en textos usando coincidencia difusa
-13. *Additional services to be added*
+13. **Shower Cropper** - Detecta y recorta automáticamente el área con texto manuscrito o rellenado en formularios
+14. *Additional services to be added*
 
 ### Service Details
 
@@ -103,6 +104,13 @@ Corrige nombres de ciudades en textos utilizando algoritmos de coincidencia difu
   - `threshold` - Umbral de similitud (0-100, default: 85)
 - **Requirements**: Requiere configuración de Supabase con tabla 'towns'
 - **Output Format**: JSON con el texto corregido
+
+#### Shower Cropper
+Detecta y recorta automáticamente el área con texto manuscrito o rellenado en formularios.
+- **Endpoint**: `/shower-cropper/crop-shower/`
+- **Features**: Utiliza análisis de imagen para detectar dinámicamente las áreas con contenido escrito
+- **Output Format**: Archivo ZIP conteniendo la imagen recortada (ejemplo: `image_text_area.jpg`)
+- **Requirements**: Requiere OpenCV y NumPy para el procesamiento de imágenes
 
 ## Requirements
 
