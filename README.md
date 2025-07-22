@@ -16,7 +16,7 @@ This project unifies various document processing, transcription, and letter gene
 10. **Image to PDF** - Converts images to PDF format
 11. **PDF Text Extractor** - Extracts text from PDF files
 12. **Text Correction** - Corrige nombres de ciudades en textos usando coincidencia difusa
-13. **Shower Cropper** - Detecta y recorta automáticamente el área con texto manuscrito o rellenado en formularios
+13. **Shower Cropper** - Recorta automáticamente el área donde típicamente aparece el texto manuscrito o rellenado en formularios
 14. *Additional services to be added*
 
 ### Service Details
@@ -106,11 +106,11 @@ Corrige nombres de ciudades en textos utilizando algoritmos de coincidencia difu
 - **Output Format**: JSON con el texto corregido
 
 #### Shower Cropper
-Detecta y recorta automáticamente el área con texto manuscrito o rellenado en formularios.
+Recorta automáticamente el área donde típicamente aparece el texto manuscrito o rellenado en formularios, usando proporciones fijas.
 - **Endpoint**: `/shower-cropper/crop-shower/`
-- **Features**: Utiliza análisis de imagen para detectar dinámicamente las áreas con contenido escrito
+- **Features**: Utiliza proporciones fijas optimizadas para formularios estándar (recorta desde 32.5% hasta 87.5% de la altura)
 - **Output Format**: Archivo ZIP conteniendo la imagen recortada (ejemplo: `image_text_area.jpg`)
-- **Requirements**: Requiere OpenCV y NumPy para el procesamiento de imágenes
+- **Requirements**: Requiere Pillow para el procesamiento de imágenes
 
 ## Requirements
 

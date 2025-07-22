@@ -14,8 +14,6 @@ pdfminer.six>=20221105  # Para extraer texto de PDFs
 
 # Procesamiento de imágenes
 Pillow>=10.0.0
-numpy>=1.24.0
-opencv-python>=4.8.0
 
 # OCR (Reconocimiento Óptico de Caracteres)
 pytesseract>=0.3.10  # Para OCR

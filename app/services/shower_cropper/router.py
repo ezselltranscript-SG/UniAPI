@@ -14,21 +14,21 @@ router = APIRouter()
 def read_root():
     """Welcome endpoint for Shower Cropper service"""
     return {
-        "message": "Welcome to Shower Cropper Service. Use /crop-shower/ endpoint to upload and crop images with automatic text area detection.",
-        "description": "This service automatically detects and crops the handwritten or filled-in area of a form."
+        "message": "Welcome to Shower Cropper Service. Use /crop-shower/ endpoint to upload and crop images to fixed text area.",
+        "description": "This service crops images to a fixed position where handwritten or filled-in content typically appears."
     }
 
 
-@router.post("/crop-shower/", summary="Crop image to handwritten/filled-in area")
-async def crop_to_written_area(
+@router.post("/crop-shower/", summary="Crop image to fixed text area")
+async def crop_to_fixed_area(
     image_file: Annotated[UploadFile, File(description="Image file to crop")]
 ):
-    """Crop an image to the dynamically-detected handwritten or filled-in area.
+    """Crop an image to a fixed position where handwritten or filled-in content typically appears.
     
     - **image_file**: The image file to crop (PNG, JPG, JPEG)
     
-    The image will be analyzed to detect the area with handwritten or filled-in content,
-    and only that area will be extracted.
+    The image will be cropped to a fixed area based on standard form proportions,
+    typically where handwritten or filled-in content appears.
     
     Returns a ZIP file containing the cropped part.
     """
@@ -50,7 +50,7 @@ async def crop_to_written_area(
         
         # Process the image using the service
         try:
-            result = ShowerCropperService.crop_to_written_area(content, image_file.filename)
+            result = ShowerCropperService.crop_fixed_area(content, image_file.filename)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error processing image: {str(e)}")
         
