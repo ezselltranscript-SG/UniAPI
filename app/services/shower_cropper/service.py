@@ -169,30 +169,58 @@ class ShowerCropperService:
             gray = cv2.cvtColor(image_array, cv2.COLOR_BGR2GRAY)
         else:
             gray = image_array
+        
+        # Aplicar umbralización para mejorar el contraste
+        _, thresh = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY_INV)
+        
+        # Método 1: Buscar líneas horizontales características del formulario
+        horizontal_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (50, 1))
+        horizontal_lines = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, horizontal_kernel, iterations=1)
+        
+        # Contar líneas horizontales
+        contours_h, _ = cv2.findContours(horizontal_lines, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+        # Si hay suficientes líneas horizontales, probablemente es un formulario
+        if len(contours_h) >= 3:
+            print(f"Detected {len(contours_h)} horizontal lines - likely a standard form")
+            return True
+        
+        # Método 2: Buscar texto "Ivverich" que aparece en el encabezado del formulario
+        # Este método es más específico para el formato exacto mostrado
+        top_region = gray[0:int(gray.shape[0]*0.2), :]
+        _, top_thresh = cv2.threshold(top_region, 180, 255, cv2.THRESH_BINARY_INV)
+        
+        # Buscar contornos en la región superior que podrían ser el encabezado
+        contours_top, _ = cv2.findContours(top_thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+        # Si hay varios contornos en la parte superior, podría ser el encabezado del formulario
+        if len(contours_top) > 5:
+            total_area = 0
+            for c in contours_top:
+                total_area += cv2.contourArea(c)
             
-        # Método 1: Buscar el borde negro característico
-        # Aplicar umbralización para destacar los bordes negros
-        _, thresh = cv2.threshold(gray, 50, 255, cv2.THRESH_BINARY_INV)
+            # Si hay suficiente área de contornos en la parte superior
+            if total_area > (top_region.shape[0] * top_region.shape[1] * 0.05):
+                print(f"Detected header region with {len(contours_top)} contours - likely a standard form")
+                return True
         
-        # Buscar contornos rectangulares grandes
-        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        # Método 3: Verificar patrón de líneas horizontales equidistantes en la parte central
+        # Este método busca las líneas de escritura del formulario
+        middle_region = gray[int(gray.shape[0]*0.4):int(gray.shape[0]*0.9), :]
+        _, middle_thresh = cv2.threshold(middle_region, 200, 255, cv2.THRESH_BINARY_INV)
         
-        # Buscar un rectángulo grande que podría ser el borde del formulario
-        for contour in contours:
-            x, y, w, h = cv2.boundingRect(contour)
-            # Si encontramos un rectángulo grande que ocupa gran parte de la imagen
-            if w > image_array.shape[1] * 0.8 and h > image_array.shape[0] * 0.7:
-                # Verificar si tiene líneas horizontales características
-                roi = gray[y:y+h, x:x+w]
-                horizontal_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (40, 1))
-                detect_horizontal = cv2.morphologyEx(roi, cv2.MORPH_OPEN, horizontal_kernel, iterations=2)
-                horizontal_lines = cv2.findContours(detect_horizontal, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-                horizontal_lines = horizontal_lines[0] if len(horizontal_lines) == 2 else horizontal_lines[1]
-                
-                if len(horizontal_lines) > 5:  # Si hay suficientes líneas horizontales
-                    return True
+        # Detectar líneas horizontales en la región central
+        h_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (40, 1))
+        h_lines = cv2.morphologyEx(middle_thresh, cv2.MORPH_OPEN, h_kernel, iterations=1)
+        contours_middle, _ = cv2.findContours(h_lines, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         
-        # Si no se detectó el formato estándar
+        # Si hay varias líneas horizontales en la parte central, probablemente es un formulario
+        if len(contours_middle) >= 5:
+            print(f"Detected {len(contours_middle)} lines in writing area - likely a standard form")
+            return True
+        
+        # Si llegamos aquí, no se detectó el formato estándar con ningún método
+        print("No standard form pattern detected")
         return False
     
     @staticmethod
