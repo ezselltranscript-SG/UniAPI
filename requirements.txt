@@ -1,8 +1,8 @@
 # Framework web y servidor
-fastapi>=0.104.0
-uvicorn>=0.23.2
+fastapi>=0.100.0
+uvicorn>=0.23.0
 python-multipart>=0.0.6
-pydantic>=2.4.2
+pydantic>=2.0.0
 python-dotenv>=1.0.0
 
 # Manipulación de archivos PDF
@@ -11,9 +11,11 @@ pypdf>=3.15.1
 reportlab>=4.0.4  # Para crear PDF con encabezados personalizados
 pdf2image>=1.16.3  # Para convertir PDF a imágenes
 pdfminer.six>=20221105  # Para extraer texto de PDFs
+PyMuPDF>=1.22.5
 
 # Procesamiento de imágenes
 Pillow>=10.0.0
+opencv-python>=4.8.0
 
 # OCR (Reconocimiento Óptico de Caracteres)
 pytesseract>=0.3.10  # Para OCR
