@@ -79,7 +79,7 @@ class ShowerCropperService:
         # Fixed crop boundaries based on visual inspection of obituary form layout
         # Crop from just below the submission type to just above the sender information
         top = int(height * 0.30)     # ~25% from top (below submission type)
-        bottom = int(height * 0.79)  # ~67% from top (above sender info)
+        bottom = int(height * 0.82)  # ~67% from top (above sender info)
         text_box = (0, top, width, bottom)
         
         print(f"Cropping obituary form text area: {text_box}")
