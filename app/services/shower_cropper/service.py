@@ -30,8 +30,8 @@ class ShowerCropperService:
         
         # Fixed crop boundaries based on visual inspection of Ivverich und Ender form layout
         # Crop from just below the submission type checkboxes to just above the sender information
-        top = int(height * 0.44)     # ~32% from top (below checkboxes)
-        bottom = int(height * 0.87)  # ~75% from top (above sender info)
+        top = int(height * 0.46)     # ~32% from top (below checkboxes)
+        bottom = int(height * 0.84)  # ~75% from top (above sender info)
         text_box = (0, top, width, bottom)
         
         print(f"Cropping shower form text area: {text_box}")
