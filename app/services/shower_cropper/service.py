@@ -29,9 +29,9 @@ class ShowerCropperService:
         print(f"Original image size: {width}x{height} pixels")
         
         # Fixed crop boundaries based on visual inspection of Ivverich und Ender form layout
-        # Crop from just below the header to just above the sender information
-        top = int(height * 0.35)     # ~35% from top (below header)
-        bottom = int(height * 0.82)  # ~82% from top (above sender info)
+        # Crop from just below the submission type checkboxes to just above the sender information
+        top = int(height * 0.32)     # ~32% from top (below checkboxes)
+        bottom = int(height * 0.75)  # ~75% from top (above sender info)
         text_box = (0, top, width, bottom)
         
         print(f"Cropping shower form text area: {text_box}")
@@ -77,9 +77,9 @@ class ShowerCropperService:
         print(f"Original image size: {width}x{height} pixels")
         
         # Fixed crop boundaries based on visual inspection of obituary form layout
-        # Crop from just below the header to just above the sender information
-        top = int(height * 0.20)     # ~20% from top (below header)
-        bottom = int(height * 0.65)  # ~65% from top (above sender info)
+        # Crop from just below the submission type to just above the sender information
+        top = int(height * 0.25)     # ~25% from top (below submission type)
+        bottom = int(height * 0.67)  # ~67% from top (above sender info)
         text_box = (0, top, width, bottom)
         
         print(f"Cropping obituary form text area: {text_box}")
