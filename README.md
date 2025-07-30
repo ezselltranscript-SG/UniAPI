@@ -17,7 +17,8 @@ This project unifies various document processing, transcription, and letter gene
 11. **PDF Text Extractor** - Extracts text from PDF files
 12. **Text Correction** - Corrige nombres de ciudades en textos usando coincidencia difusa
 13. **Shower Cropper** - Recorta automáticamente el área donde típicamente aparece el texto manuscrito o rellenado en formularios
-14. *Additional services to be added*
+14. **Column Merger** - Formatea archivos de texto en un documento PDF con diseño de tres columnas, especialmente para obituarios y anuncios de shower
+15. *Additional services to be added*
 
 ### Service Details
 
@@ -113,6 +114,23 @@ Recorta automáticamente el área donde típicamente aparece el texto manuscrito
 - **Features**: Utiliza proporciones fijas optimizadas para diferentes tipos de formularios
 - **Output Format**: Archivo ZIP conteniendo la imagen recortada (ejemplo: `image_text_area.jpg` o `image_obituary_area.jpg`)
 - **Requirements**: Requiere Pillow para el procesamiento de imágenes
+
+#### Column Merger
+Formatea archivos de texto en un documento PDF con diseño de tres columnas, especialmente diseñado para obituarios y anuncios de shower.
+- **Endpoints**: 
+  - `/column-merger/merge/obituaries/` - Para formatear obituarios en tres columnas
+  - `/column-merger/merge/showers/` - Para formatear anuncios de shower en tres columnas
+- **Features**: 
+  - Encabezado personalizado con tipo de documento, fecha y nombre del archivo
+  - Formato de tres columnas con títulos para cada entrada
+  - Preservación del texto original sin modificar su estilo
+  - Ordenamiento de archivos por número de parte en el nombre del archivo
+- **Parameters**: 
+  - `file/data/archive` - Archivo comprimido (ZIP, RAR, etc.) con archivos de texto
+  - `output_filename` - Nombre para el archivo de salida (opcional)
+  - `date` - Fecha para mostrar en el encabezado (opcional, formato: 'Month DD')
+- **Output Format**: Documento PDF con formato de tres columnas
+- **Requirements**: Requiere reportlab para la generación de PDF
 
 ## Requirements
 
