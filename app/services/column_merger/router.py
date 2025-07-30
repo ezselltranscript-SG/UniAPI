@@ -2,14 +2,18 @@ import os
 import shutil
 import tempfile
 from typing import Optional
-from fastapi import APIRouter, File, UploadFile, HTTPException, Form, Request
+from fastapi import APIRouter, File, UploadFile, HTTPException, Form
 from fastapi.responses import FileResponse
 
-from app.config import DOWNLOADS_DIR
 from .service import ColumnMergerService
 
 # Create router for Column Merger service
 router = APIRouter()
+
+@router.get("/health")
+async def health_check():
+    """Health check endpoint for the column merger service"""
+    return {"status": "ok", "service": "column_merger"}
 
 @router.get("/")
 async def read_root():
@@ -17,128 +21,54 @@ async def read_root():
     return {
         "message": "Column Merger Service",
         "endpoints": {
-            "POST /merge/obituaries/": "Fusiona archivos de texto en formato de columnas para obituarios",
-            "POST /merge/showers/": "Fusiona archivos de texto en formato de columnas para anuncios de shower",
+            "POST /merge-columns/": "Fusiona documentos Word manteniendo su formato original"
         },
         "parameters": {
-            "file": "Archivo comprimido (ZIP, RAR, etc.) que contiene archivos de texto",
-            "output_filename": "Nombre para el archivo de salida (opcional)",
-            "date": "Fecha para mostrar en el encabezado (opcional, formato: 'Month DD')"
+            "file": "Archivo comprimido (ZIP, RAR, etc.) que contiene documentos Word",
+            "output_filename": "Nombre para el archivo de salida (opcional)"
         },
         "notes": "Los archivos se ordenarán por número de parte si tienen 'partX' en el nombre"
     }
 
-@router.post("/merge/obituaries/", summary="Fusionar archivos de texto en formato de columnas para obituarios")
-async def merge_obituaries(
-    file: Optional[UploadFile] = File(None),
-    data: Optional[UploadFile] = File(None),
-    archive: Optional[UploadFile] = File(None),
-    output_filename: Optional[str] = Form("merged_obituaries"),
-    date: Optional[str] = Form(None),
-    request: Request = None
+@router.post("/merge-columns/", summary="Fusionar documentos Word manteniendo formato")
+async def merge_columns(
+    file: UploadFile = File(...),
+    output_filename: str = Form("merged_document")
 ):
     """
-    Fusiona múltiples archivos de texto en formato de columnas para obituarios
+    Fusiona documentos Word de un archivo comprimido manteniendo el formato original
     
-    - **file/data/archive**: Archivo comprimido (ZIP, RAR, etc.) con archivos de texto
+    - **file**: Archivo comprimido (ZIP, RAR, etc.) con documentos Word
     - **output_filename**: Nombre para el archivo de salida (opcional)
-    - **date**: Fecha para mostrar en el encabezado (opcional, formato: 'Month DD')
     
     Los archivos se ordenarán por número de parte si tienen 'partX' en el nombre.
+    El resultado será un único documento Word con todas las páginas combinadas.
     """
-    return await merge_files_in_columns(
-        file=file, 
-        data=data, 
-        archive=archive, 
-        output_filename=output_filename, 
-        date=date, 
-        document_type="OBITUARIES", 
-        request=request
-    )
-
-@router.post("/merge/showers/", summary="Fusionar archivos de texto en formato de columnas para showers")
-async def merge_showers(
-    file: Optional[UploadFile] = File(None),
-    data: Optional[UploadFile] = File(None),
-    archive: Optional[UploadFile] = File(None),
-    output_filename: Optional[str] = Form("merged_showers"),
-    date: Optional[str] = Form(None),
-    request: Request = None
-):
-    """
-    Fusiona múltiples archivos de texto en formato de columnas para anuncios de shower
-    
-    - **file/data/archive**: Archivo comprimido (ZIP, RAR, etc.) con archivos de texto
-    - **output_filename**: Nombre para el archivo de salida (opcional)
-    - **date**: Fecha para mostrar en el encabezado (opcional, formato: 'Month DD')
-    
-    Los archivos se ordenarán por número de parte si tienen 'partX' en el nombre.
-    """
-    return await merge_files_in_columns(
-        file=file, 
-        data=data, 
-        archive=archive, 
-        output_filename=output_filename, 
-        date=date, 
-        document_type="SHOWERS", 
-        request=request
-    )
-
-async def merge_files_in_columns(
-    file: Optional[UploadFile] = None,
-    data: Optional[UploadFile] = None,
-    archive: Optional[UploadFile] = None,
-    output_filename: str = "merged_document",
-    date: Optional[str] = None,
-    document_type: str = "OBITUARIES",
-    request: Request = None
-):
-    """
-    Función auxiliar para fusionar archivos en formato de columnas
-    """
-    # Determinar cuál campo contiene el archivo
-    actual_file = file or data or archive
-    if not actual_file:
-        form = await request.form()
-        for value in form.values():
-            if isinstance(value, UploadFile):
-                actual_file = value
-                break
-    
-    if not actual_file:
-        raise HTTPException(status_code=400, detail="No se proporcionó ningún archivo.")
-    
     try:
-        # Crear un directorio temporal para procesar los archivos
-        with tempfile.TemporaryDirectory() as temp_dir:
-            # Leer el archivo comprimido
-            archive_data = await actual_file.read()
+        # Crear un directorio temporal para el procesamiento
+        temp_dir = tempfile.mkdtemp()
+        
+        try:
+            # Leer el archivo subido
+            archive_data = await file.read()
             
-            # Usar el servicio para procesar y fusionar los archivos
-            column_merger = ColumnMergerService()
-            result = column_merger.merge_files_in_columns(
+            # Procesar el archivo con el servicio
+            result = ColumnMergerService.merge_documents(
                 archive_data=archive_data,
                 output_filename=output_filename,
-                temp_dir=temp_dir,
-                document_type=document_type,
-                date=date
+                temp_dir=temp_dir
             )
             
-            # Crear una copia del archivo en una ubicación más persistente
-            persistent_file = os.path.join(DOWNLOADS_DIR, result["filename"])
-            shutil.copy2(result["output_path"], persistent_file)
-            
-            # Devolver el archivo fusionado
+            # Devolver el archivo resultante
             return FileResponse(
-                path=persistent_file,
-                media_type=result["media_type"],
-                filename=result["filename"]
+                path=result["output_file"],
+                filename=f"{output_filename}.docx",
+                media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             )
+            
+        finally:
+            # Limpiar el directorio temporal
+            shutil.rmtree(temp_dir, ignore_errors=True)
             
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al fusionar archivos: {str(e)}")
-
-@router.get("/health")
-async def health_check():
-    """Endpoint para verificar el estado del servicio"""
-    return {"status": "OK"}
+        raise HTTPException(status_code=500, detail=str(e))

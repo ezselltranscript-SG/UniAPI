@@ -116,21 +116,18 @@ Recorta automáticamente el área donde típicamente aparece el texto manuscrito
 - **Requirements**: Requiere Pillow para el procesamiento de imágenes
 
 #### Column Merger
-Formatea archivos de texto en un documento PDF con diseño de tres columnas, especialmente diseñado para obituarios y anuncios de shower.
+Fusiona documentos Word de un archivo comprimido manteniendo el formato original de cada página.
 - **Endpoints**: 
-  - `/column-merger/merge/obituaries/` - Para formatear obituarios en tres columnas
-  - `/column-merger/merge/showers/` - Para formatear anuncios de shower en tres columnas
+  - `/column-merger/merge-columns/` - Para fusionar documentos Word manteniendo su formato
 - **Features**: 
-  - Encabezado personalizado con tipo de documento, fecha y nombre del archivo
-  - Formato de tres columnas con títulos para cada entrada
-  - Preservación del texto original sin modificar su estilo
+  - Fusión de múltiples documentos Word en un solo archivo
+  - Preservación del formato original de cada documento (columnas, fuentes, estilos, etc.)
   - Ordenamiento de archivos por número de parte en el nombre del archivo
 - **Parameters**: 
-  - `file/data/archive` - Archivo comprimido (ZIP, RAR, etc.) con archivos de texto
+  - `file` - Archivo comprimido (ZIP, RAR, etc.) con documentos Word
   - `output_filename` - Nombre para el archivo de salida (opcional)
-  - `date` - Fecha para mostrar en el encabezado (opcional, formato: 'Month DD')
-- **Output Format**: Documento PDF con formato de tres columnas
-- **Requirements**: Requiere reportlab para la generación de PDF
+- **Output Format**: Documento Word (.docx) con todas las páginas combinadas
+- **Requirements**: Requiere python-docx y docxcompose para la manipulación de documentos Word
 
 ## Requirements
 
