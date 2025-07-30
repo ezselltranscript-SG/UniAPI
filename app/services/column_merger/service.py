@@ -89,9 +89,16 @@ class ColumnMergerService:
         master = Document(word_files[0])
         composer = Composer(master)
         
-        # Añadir el resto de documentos
+        # Añadir el resto de documentos con dos saltos de línea entre ellos
         for i, file_path in enumerate(word_files[1:], 1):
             try:
+                # Añadir dos saltos de línea al final del documento actual
+                # Esto crea una separación entre documentos
+                last_paragraph = master.add_paragraph()
+                last_paragraph.add_run().add_break()
+                last_paragraph.add_run().add_break()
+                
+                # Añadir el siguiente documento
                 doc = Document(file_path)
                 composer.append(doc)
                 logger.info(f"Documento añadido: {os.path.basename(file_path)}")
