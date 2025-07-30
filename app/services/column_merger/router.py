@@ -1,11 +1,15 @@
 import os
 import shutil
 import tempfile
+import logging
 from typing import Optional
-from fastapi import APIRouter, File, UploadFile, HTTPException, Form
+from fastapi import APIRouter, File, UploadFile, Form, BackgroundTasks, Query, HTTPException
 from fastapi.responses import FileResponse
-
 from .service import ColumnMergerService
+
+# Configurar logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Create router for Column Merger service
 router = APIRouter()
@@ -80,4 +84,59 @@ async def merge_columns(
         )
             
     except Exception as e:
+        logger.error(f"Error al fusionar documentos: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/word-to-pdf/", summary="Convertir documento Word a PDF")
+async def word_to_pdf(
+    file: UploadFile = File(...)
+):
+    """
+    Convierte un documento Word a PDF sin alterar el formato
+    
+    - **file**: Documento Word (.docx o .doc)
+    
+    El resultado será un documento PDF que mantiene exactamente el mismo formato que el Word original.
+    """
+    try:
+        # Validar tipo de archivo
+        if not file.filename.lower().endswith(('.docx', '.doc')):
+            raise HTTPException(status_code=400, detail="El archivo debe ser un documento Word (.docx o .doc)")
+            
+        # Crear un directorio temporal para el procesamiento
+        temp_dir = tempfile.mkdtemp()
+        
+        # Leer el archivo subido
+        word_data = await file.read()
+        
+        # Procesar el archivo con el servicio para convertir a PDF
+        result = ColumnMergerService.convert_word_bytes_to_pdf(
+            word_data=word_data,
+            filename=file.filename,
+            temp_dir=temp_dir
+        )
+        
+        # Copiar el archivo PDF a un directorio temporal que no se eliminará inmediatamente
+        pdf_file = result["pdf_path"]
+        safe_temp_dir = tempfile.mkdtemp()
+        safe_output_path = os.path.join(safe_temp_dir, result["filename"])
+        shutil.copy2(pdf_file, safe_output_path)
+        
+        # Limpiar el directorio temporal original
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        
+        # Definir una función para limpiar el directorio temporal después de enviar la respuesta
+        def cleanup_temp_dir():
+            shutil.rmtree(safe_temp_dir, ignore_errors=True)
+        
+        # Devolver el archivo PDF resultante desde la ubicación segura
+        return FileResponse(
+            path=safe_output_path,
+            filename=result["filename"],
+            media_type="application/pdf",
+            background=cleanup_temp_dir
+        )
+            
+    except Exception as e:
+        logger.error(f"Error al convertir Word a PDF: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
