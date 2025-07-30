@@ -48,27 +48,36 @@ async def merge_columns(
         # Crear un directorio temporal para el procesamiento
         temp_dir = tempfile.mkdtemp()
         
-        try:
-            # Leer el archivo subido
-            archive_data = await file.read()
-            
-            # Procesar el archivo con el servicio
-            result = ColumnMergerService.merge_documents(
-                archive_data=archive_data,
-                output_filename=output_filename,
-                temp_dir=temp_dir
-            )
-            
-            # Devolver el archivo resultante
-            return FileResponse(
-                path=result["output_file"],
-                filename=f"{output_filename}.docx",
-                media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            )
-            
-        finally:
-            # Limpiar el directorio temporal
-            shutil.rmtree(temp_dir, ignore_errors=True)
+        # Leer el archivo subido
+        archive_data = await file.read()
+        
+        # Procesar el archivo con el servicio
+        result = ColumnMergerService.merge_documents(
+            archive_data=archive_data,
+            output_filename=output_filename,
+            temp_dir=temp_dir
+        )
+        
+        # Copiar el archivo a un directorio temporal que no se eliminará inmediatamente
+        output_file = result["output_file"]
+        safe_temp_dir = tempfile.mkdtemp()
+        safe_output_path = os.path.join(safe_temp_dir, f"{output_filename}.docx")
+        shutil.copy2(output_file, safe_output_path)
+        
+        # Limpiar el directorio temporal original
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        
+        # Definir una función para limpiar el directorio temporal después de enviar la respuesta
+        def cleanup_temp_dir():
+            shutil.rmtree(safe_temp_dir, ignore_errors=True)
+        
+        # Devolver el archivo resultante desde la ubicación segura
+        return FileResponse(
+            path=safe_output_path,
+            filename=f"{output_filename}.docx",
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            background=cleanup_temp_dir
+        )
             
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
