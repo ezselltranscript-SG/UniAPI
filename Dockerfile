@@ -14,7 +14,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libreoffice \
     poppler-utils \
     unrar-free \
-    libmagic1 \
     p7zip-full \
     # Tesseract OCR para el servicio OCR
     tesseract-ocr \
