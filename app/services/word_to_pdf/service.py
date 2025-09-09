@@ -50,22 +50,9 @@ class WordToPdfService:
                 base_code = "transcript"
                 logger.warning(f"No se identificó código base, usando valor predeterminado: {base_code}")
             
-            # ELIMINAR COMPLETAMENTE los encabezados de cada sección
-            for section_idx, section in enumerate(doc.sections):
-                part_number = section_idx + 1
-                header = section.header
-                
-                # Eliminar todo el contenido del encabezado
-                for paragraph in list(header.paragraphs):
-                    p = paragraph._element
-                    p.getparent().remove(p)
-                    paragraph._p = None
-                    paragraph._element = None
-                
-                # Añadir un párrafo vacío para mantener la estructura
-                header.add_paragraph()
-                
-                logger.info(f"Eliminado encabezado para sección {part_number}")
+            # Mantener los encabezados tal como están. No eliminarlos ni
+            # modificarlos para respetar el contenido original del documento.
+            logger.info("Manteniendo encabezados originales del documento (sin cambios)")
             
             # Forzar Times New Roman 10 en todos los estilos
             try:
@@ -291,17 +278,9 @@ class WordToPdfService:
                 
             logger.info(f"PDF generado en: {output_pdf}")
             
-            # Paso 3: Modificar el PDF para añadir encabezados correctos en cada página
-            modified_pdf = WordToPdfService.add_page_headers_to_pdf(output_pdf, base_code)
-            
-            if not modified_pdf:
-                logger.error(f"Error al modificar encabezados en el PDF {output_pdf}")
-                raise Exception("Error al modificar encabezados en el PDF")
-            
-            logger.info(f"Conversión exitosa con encabezados modificados: {modified_pdf}")
-            
-            # Usar el PDF modificado como resultado final
-            output_pdf = modified_pdf
+            # No añadir encabezados a nivel PDF; conservar los encabezados
+            # que ya trae el documento Word exportado por LibreOffice.
+            logger.info("Conversión exitosa; se mantienen encabezados originales del Word en el PDF")
             
             return {
                 "pdf_path": output_pdf,

@@ -11,6 +11,8 @@ from pypdf import PdfWriter, PdfReader
 from docx import Document
 from docxcompose.composer import Composer
 from docx.enum.text import WD_BREAK
+from docx.enum.section import WD_SECTION
+from copy import deepcopy
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
@@ -95,30 +97,83 @@ class FileMergerService:
             return
         
         try:
+            # Helper functions to copy header/footer content
+            def _clear_paragraphs(container):
+                for p in list(container.paragraphs):
+                    p._element.getparent().remove(p._element)
+
+            def _copy_paragraphs(src_container, dst_container):
+                for sp in src_container.paragraphs:
+                    dp = dst_container.add_paragraph()
+                    dp.style = sp.style
+                    for run in sp.runs:
+                        dr = dp.add_run(run.text)
+                        dr.bold = run.bold
+                        dr.italic = run.italic
+                        dr.underline = run.underline
+                        dr.font.name = run.font.name
+                        dr.font.size = run.font.size
+                if not src_container.paragraphs:
+                    dst_container.add_paragraph("")
+
             # Create a base document with the first file
             master = Document(file_paths[0])
-            composer = Composer(master)
-            
-            # Add each additional document with a page break before
+
+            # Ensure first section does not try to link headers forward/back
+            for sec in master.sections:
+                try:
+                    sec.header.is_linked_to_previous = False
+                    sec.footer.is_linked_to_previous = False
+                except Exception:
+                    pass
+
+            # Append each additional document; avoid manual page breaks
             for i, file_path in enumerate(file_paths[1:], 1):
                 logger.info(f"Adding document {i}: {os.path.basename(file_path)}")
-                doc = Document(file_path)
-                
-                # Add a page break before each document
-                # First add an empty paragraph to the main document
-                p = master.add_paragraph()
-                run = p.add_run()
-                run.add_break(WD_BREAK.PAGE)
-                
-                # Create a new section for each document
-                # This can help preserve headers
-                section = master.add_section()
-                
-                # Then add the document
-                composer.append(doc)
-            
+                src_doc = Document(file_path)
+
+                # Insert a definite Section Break (Next Page) so the next
+                # letter starts on a new page
+                master.add_section(WD_SECTION.NEW_PAGE)
+                target_section = master.sections[-1]
+
+                # Configure the new section's header/footer by copying from source
+                target_section.header.is_linked_to_previous = False
+                target_section.footer.is_linked_to_previous = False
+
+                try:
+                    _clear_paragraphs(target_section.header)
+                    _copy_paragraphs(src_doc.sections[0].header, target_section.header)
+                except Exception as he:
+                    logger.warning(f"Could not copy header from {os.path.basename(file_path)}: {he}")
+
+                try:
+                    _clear_paragraphs(target_section.footer)
+                    _copy_paragraphs(src_doc.sections[0].footer, target_section.footer)
+                except Exception as fe:
+                    logger.warning(f"Could not copy footer from {os.path.basename(file_path)}: {fe}")
+
+                # Append the source document's body elements directly, but insert
+                # them BEFORE the sectPr of the new section so the content belongs
+                # to this section (and uses its header/footer)
+                src_body = src_doc.element.body
+                dst_body = master.element.body
+                # Find index of sectPr (usually last). If not found, append at end.
+                dst_children = list(dst_body)
+                sectpr_index = None
+                for idx, child in enumerate(dst_children[::-1]):
+                    if child.tag.endswith('sectPr'):
+                        sectpr_index = len(dst_children) - 1 - idx
+                        break
+                insert_index = sectpr_index if sectpr_index is not None else len(dst_children)
+                for child in list(src_body):
+                    if child.tag.endswith('sectPr'):
+                        continue
+                    dst_body.insert(insert_index, deepcopy(child))
+                    insert_index += 1
+
             # Save the combined document
-            composer.save(output_path)
+            master.save(output_path)
             logger.info(f"Combined document saved to {output_path}")
             
         except Exception as e:
