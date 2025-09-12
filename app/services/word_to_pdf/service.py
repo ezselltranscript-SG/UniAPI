@@ -5,9 +5,9 @@ import subprocess
 import logging
 import io
 import re
+import platform
 from typing import Dict, Any, Tuple, Optional
 from docx import Document
-from docx.shared import Pt
 from PyPDF2 import PdfWriter, PdfReader
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
@@ -50,35 +50,37 @@ class WordToPdfService:
                 base_code = "transcript"
                 logger.warning(f"No se identificó código base, usando valor predeterminado: {base_code}")
             
-            # Mantener los encabezados tal como están. No eliminarlos ni
-            # modificarlos para respetar el contenido original del documento.
-            logger.info("Manteniendo encabezados originales del documento (sin cambios)")
-            
-            # Forzar Times New Roman 10 en todos los estilos
+            # Asegurar Times New Roman como familia tipográfica sin alterar tamaños
+            # ni espaciamientos. Esto ayuda a mantener el layout mientras se cumple
+            # el requisito de tipografía.
+            logger.info("Normalizando fuentes a 'Times New Roman' sin cambiar tamaños")
             try:
                 from docx.enum.style import WD_STYLE_TYPE
                 for style in doc.styles:
                     if style.type in (WD_STYLE_TYPE.PARAGRAPH, WD_STYLE_TYPE.CHARACTER):
                         if style.font is not None:
                             style.font.name = 'Times New Roman'
-                            style.font.size = Pt(10)
             except Exception as e:
-                logger.warning(f"No se pudo modificar estilos globales: {e}")
+                logger.warning(f"No se pudieron normalizar estilos: {e}")
 
-            # Cambiar la fuente y tamaño manualmente en cada ejecución de texto
+            # Forzar solo el nombre de la fuente a nivel de runs (manteniendo size, bold, etc.)
             for paragraph in doc.paragraphs:
                 for run in paragraph.runs:
-                    run.font.name = 'Times New Roman'
-                    run.font.size = Pt(10)
-            
-            # Cambiar también en las tablas
+                    try:
+                        run.font.name = 'Times New Roman'
+                    except Exception:
+                        pass
+
+            # También dentro de tablas
             for table in doc.tables:
                 for row in table.rows:
                     for cell in row.cells:
                         for paragraph in cell.paragraphs:
                             for run in paragraph.runs:
-                                run.font.name = 'Times New Roman'
-                                run.font.size = Pt(10)
+                                try:
+                                    run.font.name = 'Times New Roman'
+                                except Exception:
+                                    pass
             
             # Guardar el documento modificado
             doc.save(modified_docx)
@@ -173,51 +175,69 @@ class WordToPdfService:
         try:
             # Asegurarse de que output_dir sea un directorio válido
             os.makedirs(output_dir, exist_ok=True)
-            
-            # Nombre base del archivo sin extensión
+
             base_name = os.path.basename(docx_path)
             base_name_without_ext = os.path.splitext(base_name)[0]
             expected_pdf = os.path.join(output_dir, f"{base_name_without_ext}.pdf")
-            
-            # Comando simple para convertir a PDF
-            cmd = [
-                "libreoffice",
-                "--headless",
-                "--convert-to", "pdf:writer_pdf_Export",
-                "--outdir", output_dir,
-                docx_path
-            ]
-            
-            logger.info(f"Ejecutando: {' '.join(cmd)}")
-            
-            # Ejecutar el comando
-            process = subprocess.run(cmd, capture_output=True, text=True)
-            
-            # Registrar la salida
-            if process.stdout:
-                logger.info(f"Salida: {process.stdout}")
-            if process.stderr:
-                logger.warning(f"Error: {process.stderr}")
-            
-            # Verificar el archivo PDF generado
+
+            # En Windows: usar docx2pdf (Microsoft Word via COM) para máxima fidelidad
+            if platform.system().lower().startswith("win"):
+                try:
+                    from docx2pdf import convert as docx2pdf_convert
+                    logger.info("Usando docx2pdf (Microsoft Word) para convertir a PDF en Windows")
+                    # docx2pdf acepta (input_path, output_path|dir). Si output es directorio, conserva nombre.
+                    docx2pdf_convert(docx_path, output_dir)
+                except Exception as e:
+                    logger.warning(f"Fallo docx2pdf, se intentará LibreOffice como respaldo: {e}")
+                # Si Word falló, expected_pdf puede no existir; en ese caso usar LibreOffice como fallback
+                if not os.path.exists(expected_pdf):
+                    logger.info("Intentando conversión con LibreOffice (fallback en Windows)")
+                    cmd = [
+                        "libreoffice",
+                        "--headless",
+                        "--convert-to", "pdf:writer_pdf_Export",
+                        "--outdir", output_dir,
+                        docx_path,
+                    ]
+                    logger.info(f"Ejecutando: {' '.join(cmd)}")
+                    process = subprocess.run(cmd, capture_output=True, text=True)
+                    if process.stdout:
+                        logger.info(f"Salida: {process.stdout}")
+                    if process.stderr:
+                        logger.warning(f"Error: {process.stderr}")
+            else:
+                # En otros sistemas, usar LibreOffice
+                cmd = [
+                    "libreoffice",
+                    "--headless",
+                    "--convert-to", "pdf:writer_pdf_Export",
+                    "--outdir", output_dir,
+                    docx_path,
+                ]
+                logger.info(f"Ejecutando: {' '.join(cmd)}")
+                process = subprocess.run(cmd, capture_output=True, text=True)
+                if process.stdout:
+                    logger.info(f"Salida: {process.stdout}")
+                if process.stderr:
+                    logger.warning(f"Error: {process.stderr}")
+
+            # Verificar resultado
             if os.path.exists(expected_pdf):
                 logger.info(f"PDF generado correctamente: {expected_pdf}")
                 return expected_pdf
-            else:
-                # Listar archivos en el directorio para diagnóstico
-                files = os.listdir(output_dir)
-                logger.info(f"Archivos en directorio: {files}")
-                
-                # Buscar cualquier PDF generado
-                for file in files:
-                    if file.endswith(".pdf"):
-                        pdf_path = os.path.join(output_dir, file)
-                        logger.info(f"PDF encontrado: {pdf_path}")
-                        return pdf_path
-                
-                logger.error("No se encontró ningún PDF generado")
-                return None
-                
+
+            # Buscar cualquier PDF generado en el directorio de salida
+            files = os.listdir(output_dir)
+            logger.info(f"Archivos en directorio: {files}")
+            for file in files:
+                if file.lower().endswith(".pdf"):
+                    pdf_path = os.path.join(output_dir, file)
+                    logger.info(f"PDF encontrado: {pdf_path}")
+                    return pdf_path
+
+            logger.error("No se encontró ningún PDF generado")
+            return None
+
         except Exception as e:
             logger.error(f"Error en conversión: {str(e)}")
             return None
