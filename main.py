@@ -19,6 +19,7 @@ from app.services.pdf_text_extractor.router import router as pdf_text_extractor_
 from app.services.text_correction.router import router as text_correction_router
 from app.services.shower_cropper.router import router as shower_cropper_router
 from app.services.column_merger.router import router as column_merger_router
+from app.services.docx_generator.router import router as docx_generator_router
 # Import additional service routers here as they are added
 
 # Create main FastAPI application
@@ -58,6 +59,7 @@ def read_root():
             {"name": "Text Correction", "endpoint": "/text-correction"},
             {"name": "Shower Cropper", "endpoint": "/shower-cropper"},
             {"name": "Column Merger", "endpoint": "/column-merger"},
+            {"name": "DOCX Generator", "endpoint": "/docx-generator"},
             # Add other services here as they are implemented
         ],
         "documentation": "/docs"
@@ -78,6 +80,7 @@ app.include_router(pdf_text_extractor_router, prefix="/pdf-text-extractor", tags
 app.include_router(text_correction_router, prefix="/text-correction", tags=["Text Correction"])
 app.include_router(shower_cropper_router, prefix="/shower-cropper", tags=["Shower Cropper"])
 app.include_router(column_merger_router, prefix="/column-merger", tags=["Column Merger"])
+app.include_router(docx_generator_router, prefix="/docx-generator", tags=["DOCX Generator"])
 # Include additional service routers here as they are added
 
 if __name__ == "__main__":
