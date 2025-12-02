@@ -21,6 +21,9 @@ from app.services.shower_cropper.router import router as shower_cropper_router
 from app.services.column_merger.router import router as column_merger_router
 from app.services.docx_generator.router import router as docx_generator_router
 # Import additional service routers here as they are added
+from app.services.anchored_pdf_cropper.router import router as anchored_pdf_cropper_router
+from app.services.fixed_image_cropper_NT.router import router as fixed_image_cropper_nt_router
+from app.services.template_checker.router import router as template_checker_router
 
 # Create main FastAPI application
 app = FastAPI(
@@ -60,6 +63,9 @@ def read_root():
             {"name": "Shower Cropper", "endpoint": "/shower-cropper"},
             {"name": "Column Merger", "endpoint": "/column-merger"},
             {"name": "DOCX Generator", "endpoint": "/docx-generator"},
+            {"name": "Anchored PDF Cropper", "endpoint": "/anchored-pdf-cropper"},
+            {"name": "Fixed Image Cropper NT", "endpoint": "/fixed-image-cropper-nt"},
+            {"name": "Template Checker", "endpoint": "/template-checker"},
             # Add other services here as they are implemented
         ],
         "documentation": "/docs"
@@ -81,16 +87,9 @@ app.include_router(text_correction_router, prefix="/text-correction", tags=["Tex
 app.include_router(shower_cropper_router, prefix="/shower-cropper", tags=["Shower Cropper"])
 app.include_router(column_merger_router, prefix="/column-merger", tags=["Column Merger"])
 app.include_router(docx_generator_router, prefix="/docx-generator", tags=["DOCX Generator"])
-<<<<<<< HEAD
-<<<<<<< HEAD
 app.include_router(anchored_pdf_cropper_router, prefix="/anchored-pdf-cropper", tags=["Anchored PDF Cropper"])
 app.include_router(fixed_image_cropper_nt_router, prefix="/fixed-image-cropper-nt", tags=["Fixed Image Cropper NT"])
 app.include_router(template_checker_router, prefix="/template-checker", tags=["Template Checker"])
-=======
->>>>>>> parent of 3e4fcb6 (NF Checker And Cropper)
-=======
->>>>>>> parent of 3e4fcb6 (NF Checker And Cropper)
-# Include additional service routers here as they are added
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host=API_HOST, port=API_PORT, reload=API_RELOAD)
