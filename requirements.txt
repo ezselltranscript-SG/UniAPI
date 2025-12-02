@@ -32,6 +32,7 @@ rarfile>=4.0
 # Utilidades
 typing-extensions>=4.7.0  # Para soporte de Annotated en Python < 3.9
 numpy>=1.26.0
+opencv-python-headless>=4.8.0
 
 # Supabase y coincidencia difusa
 supabase>=1.0.3
