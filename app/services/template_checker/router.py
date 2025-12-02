@@ -22,7 +22,7 @@ async def detect_template(
 
         content = await image_file.read()
         result = TemplateCheckerService.detect_template(content)
-        template_id = result.get("template_id", 1)
+        template_id = str(result.get("template_id", 1))
         # Return JSON so clients can branch on template_id
         # Keep reason and other debug info in case the caller needs it
         return JSONResponse({
