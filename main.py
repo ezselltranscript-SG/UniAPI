@@ -82,9 +82,12 @@ app.include_router(shower_cropper_router, prefix="/shower-cropper", tags=["Showe
 app.include_router(column_merger_router, prefix="/column-merger", tags=["Column Merger"])
 app.include_router(docx_generator_router, prefix="/docx-generator", tags=["DOCX Generator"])
 <<<<<<< HEAD
+<<<<<<< HEAD
 app.include_router(anchored_pdf_cropper_router, prefix="/anchored-pdf-cropper", tags=["Anchored PDF Cropper"])
 app.include_router(fixed_image_cropper_nt_router, prefix="/fixed-image-cropper-nt", tags=["Fixed Image Cropper NT"])
 app.include_router(template_checker_router, prefix="/template-checker", tags=["Template Checker"])
+=======
+>>>>>>> parent of 3e4fcb6 (NF Checker And Cropper)
 =======
 >>>>>>> parent of 3e4fcb6 (NF Checker And Cropper)
 # Include additional service routers here as they are added
