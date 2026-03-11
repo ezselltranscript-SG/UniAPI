@@ -24,6 +24,9 @@ from app.services.docx_generator.router import router as docx_generator_router
 from app.services.anchored_pdf_cropper.router import router as anchored_pdf_cropper_router
 from app.services.fixed_image_cropper_NT.router import router as fixed_image_cropper_nt_router
 from app.services.template_checker.router import router as template_checker_router
+from app.services.fixed_image_cropper_The_Budget.router import router as fixed_image_cropper_the_budget_router
+from app.services.template_checker_The_Budget.router import router as template_checker_the_budget_router
+from app.services.fixed_image_cropper_The_Budget_T2.router import router as fixed_image_cropper_the_budget_t2_router
 
 # Create main FastAPI application
 app = FastAPI(
@@ -65,7 +68,10 @@ def read_root():
             {"name": "DOCX Generator", "endpoint": "/docx-generator"},
             {"name": "Anchored PDF Cropper", "endpoint": "/anchored-pdf-cropper"},
             {"name": "Fixed Image Cropper NT", "endpoint": "/fixed-image-cropper-nt"},
+            {"name": "Fixed Image Cropper The Budget", "endpoint": "/fixed-image-cropper-the-budget"},
+            {"name": "Fixed Image Cropper The Budget T2", "endpoint": "/fixed-image-cropper-the-budget-t2"},
             {"name": "Template Checker", "endpoint": "/template-checker"},
+            {"name": "Template Checker The Budget", "endpoint": "/template-checker-the-budget"},
             # Add other services here as they are implemented
         ],
         "documentation": "/docs"
@@ -89,7 +95,10 @@ app.include_router(column_merger_router, prefix="/column-merger", tags=["Column 
 app.include_router(docx_generator_router, prefix="/docx-generator", tags=["DOCX Generator"])
 app.include_router(anchored_pdf_cropper_router, prefix="/anchored-pdf-cropper", tags=["Anchored PDF Cropper"])
 app.include_router(fixed_image_cropper_nt_router, prefix="/fixed-image-cropper-nt", tags=["Fixed Image Cropper NT"])
+app.include_router(fixed_image_cropper_the_budget_router, prefix="/fixed-image-cropper-the-budget", tags=["Fixed Image Cropper The Budget"])
+app.include_router(fixed_image_cropper_the_budget_t2_router, prefix="/fixed-image-cropper-the-budget-t2", tags=["Fixed Image Cropper The Budget T2"])
 app.include_router(template_checker_router, prefix="/template-checker", tags=["Template Checker"])
+app.include_router(template_checker_the_budget_router, prefix="/template-checker-the-budget", tags=["Template Checker The Budget"])
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host=API_HOST, port=API_PORT, reload=API_RELOAD)
