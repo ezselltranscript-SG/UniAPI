@@ -32,7 +32,7 @@ class FixedImageCropperTheBudgetT2Service:
         # These percentages are intentionally conservative; adjust if needed.
         left = int(width * 0.04)
         right = int(width * 0.96)
-        top = int(height * 0.03)
+        top = int(height * 0.00)
         bottom = int(height * 0.97)
         page_box = (left, top, right, bottom)
 
