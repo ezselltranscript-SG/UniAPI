@@ -39,6 +39,30 @@ class TemplateCheckerTheBudgetService:
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 3))
         th = cv2.morphologyEx(th, cv2.MORPH_CLOSE, kernel, iterations=1)
 
+        contours, _ = cv2.findContours(th, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        roi_area = float(max(roi_w * roi_h, 1))
+        logo_like_blocks = 0
+        for cnt in contours:
+            x, y, w, h = cv2.boundingRect(cnt)
+            if w <= 0 or h <= 0:
+                continue
+            bbox_area = float(w * h)
+            if bbox_area < (roi_area * 0.02):
+                continue
+            cnt_area = float(cv2.contourArea(cnt))
+            fill_ratio = cnt_area / (bbox_area + 1e-6)
+            if fill_ratio >= 0.25:
+                logo_like_blocks += 1
+
+        if logo_like_blocks == 0:
+            return {
+                "template_id": 3,
+                "reason": "No logo-like header block detected; Template 3",
+                "image_size": {"width": W, "height": H},
+                "roi": {"top": top, "bottom": bottom, "left": 0, "right": W},
+                "metrics": {"left_ratio": 0.0, "right_ratio": 0.0, "logo_like_blocks": logo_like_blocks},
+            }
+
         mid = roi_w // 2
         left_ink = int(np.sum(th[:, :mid] > 0))
         right_ink = int(np.sum(th[:, mid:] > 0))
