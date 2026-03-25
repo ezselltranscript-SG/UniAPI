@@ -8,6 +8,7 @@ from app.config import API_HOST, API_PORT, API_RELOAD, CORS_ORIGINS
 from app.services.pdf_splitter.router import router as pdf_splitter_router
 from app.services.pdf_pair_splitter.router import router as pdf_pair_splitter_router
 from app.services.pdf_custom_splitter.router import router as pdf_custom_splitter_router
+from app.services.pdf_chunk_splitter.router import router as pdf_chunk_splitter_router
 from app.services.image_cropper.router import router as image_cropper_router
 from app.services.fixed_image_cropper.router import router as fixed_image_cropper_router
 from app.services.word_to_pdf.router import router as word_to_pdf_router
@@ -27,6 +28,7 @@ from app.services.template_checker.router import router as template_checker_rout
 from app.services.fixed_image_cropper_The_Budget.router import router as fixed_image_cropper_the_budget_router
 from app.services.template_checker_The_Budget.router import router as template_checker_the_budget_router
 from app.services.fixed_image_cropper_The_Budget_T2.router import router as fixed_image_cropper_the_budget_t2_router
+from app.services.pdf_chunk_margin_cropper.router import router as pdf_chunk_margin_cropper_router
 
 # Create main FastAPI application
 app = FastAPI(
@@ -54,6 +56,7 @@ def read_root():
             {"name": "PDF Splitter", "endpoint": "/pdf-splitter"},
             {"name": "PDF Pair Splitter", "endpoint": "/pdf-pair-splitter"},
             {"name": "PDF Custom Splitter", "endpoint": "/pdf-custom-splitter"},
+            {"name": "PDF Chunk Splitter", "endpoint": "/pdf-chunk-splitter"},
             {"name": "Image Cropper", "endpoint": "/image-cropper"},
             {"name": "Fixed Image Cropper", "endpoint": "/fixed-image-cropper"},
             {"name": "Word to PDF", "endpoint": "/word-to-pdf"},
@@ -81,6 +84,7 @@ def read_root():
 app.include_router(pdf_splitter_router, prefix="/pdf-splitter", tags=["PDF Splitter"])
 app.include_router(pdf_pair_splitter_router, prefix="/pdf-pair-splitter", tags=["PDF Pair Splitter"])
 app.include_router(pdf_custom_splitter_router, prefix="/pdf-custom-splitter", tags=["PDF Custom Splitter"])
+app.include_router(pdf_chunk_splitter_router, prefix="/pdf-chunk-splitter", tags=["PDF Chunk Splitter"])
 app.include_router(image_cropper_router, prefix="/image-cropper", tags=["Image Cropper"])
 app.include_router(fixed_image_cropper_router, prefix="/fixed-image-cropper", tags=["Fixed Image Cropper"])
 app.include_router(word_to_pdf_router, prefix="/word-to-pdf", tags=["Word to PDF"])
@@ -99,6 +103,7 @@ app.include_router(fixed_image_cropper_the_budget_router, prefix="/fixed-image-c
 app.include_router(fixed_image_cropper_the_budget_t2_router, prefix="/fixed-image-cropper-the-budget-t2", tags=["Fixed Image Cropper The Budget T2"])
 app.include_router(template_checker_router, prefix="/template-checker", tags=["Template Checker"])
 app.include_router(template_checker_the_budget_router, prefix="/template-checker-the-budget", tags=["Template Checker The Budget"])
+app.include_router(pdf_chunk_margin_cropper_router, prefix="/pdf-chunk-margin-cropper", tags=["PDF Chunk Margin Cropper"])
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host=API_HOST, port=API_PORT, reload=API_RELOAD)
