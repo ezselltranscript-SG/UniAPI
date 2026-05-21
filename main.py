@@ -29,6 +29,7 @@ from app.services.fixed_image_cropper_The_Budget.router import router as fixed_i
 from app.services.template_checker_The_Budget.router import router as template_checker_the_budget_router
 from app.services.fixed_image_cropper_The_Budget_T2.router import router as fixed_image_cropper_the_budget_t2_router
 from app.services.pdf_chunk_margin_cropper.router import router as pdf_chunk_margin_cropper_router
+from app.services.word_normalizer.router import router as word_normalizer_router
 
 # Create main FastAPI application
 app = FastAPI(
@@ -75,6 +76,7 @@ def read_root():
             {"name": "Fixed Image Cropper The Budget T2", "endpoint": "/fixed-image-cropper-the-budget-t2"},
             {"name": "Template Checker", "endpoint": "/template-checker"},
             {"name": "Template Checker The Budget", "endpoint": "/template-checker-the-budget"},
+            {"name": "Word Normalizer", "endpoint": "/word-normalizer"},
             # Add other services here as they are implemented
         ],
         "documentation": "/docs"
@@ -104,6 +106,7 @@ app.include_router(fixed_image_cropper_the_budget_t2_router, prefix="/fixed-imag
 app.include_router(template_checker_router, prefix="/template-checker", tags=["Template Checker"])
 app.include_router(template_checker_the_budget_router, prefix="/template-checker-the-budget", tags=["Template Checker The Budget"])
 app.include_router(pdf_chunk_margin_cropper_router, prefix="/pdf-chunk-margin-cropper", tags=["PDF Chunk Margin Cropper"])
+app.include_router(word_normalizer_router, prefix="/word-normalizer", tags=["Word Normalizer"])
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host=API_HOST, port=API_PORT, reload=API_RELOAD)
