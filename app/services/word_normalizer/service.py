@@ -82,19 +82,102 @@ def _context_is_uppercase(text: str) -> bool:
     return sum(1 for c in alpha if c.isupper()) / len(alpha) > 0.5
 
 
+# --- Context exception helpers ---
+# Each function receives (text, match) and returns True to SKIP that match.
+
+_EVE_SALUTATIONS = re.compile(
+    r"\b(dear|hi|hello|mr\.?|mrs\.?|ms\.?|dr\.?|miss|saint|st\.?)\s*$",
+    re.IGNORECASE,
+)
+
+_EVE_RELATIONSHIPS = re.compile(
+    r"\b(?:my|our|his|her|their|your\s+)?"
+    r"(?:daughter|son|mother|father|sister|brother|aunt|uncle|"
+    r"friend|wife|husband|neighbor|neighbour|colleague|coworker|partner|"
+    r"niece|nephew|granddaughter|grandson|grandmother|grandfather|"
+    r"grandma|grandpa|mom|dad|sis|cousin|fianc[eé]e?|"
+    r"client|patient|neighbor|associate|classmate|roommate|teammate)\s*$",
+    re.IGNORECASE,
+)
+
+# Matches "my friend", "our neighbor", "his daughter", etc. before "Eve"
+_EVE_POSSESSIVE_RELATIONSHIP = re.compile(
+    r"\b(?:my|our|his|her|their|your)\s+\w+\s*$",
+    re.IGNORECASE,
+)
+
+
+def _skip_eve(text: str, m: re.Match) -> bool:
+    """Skip 'Eve' when it is part of 'Christmas Eve' or appears to be a proper name."""
+    start, end = m.start(), m.end()
+    before = text[max(0, start - 40):start]
+    after = text[end:end + 25]
+
+    # Christmas Eve (any casing)
+    if re.search(r"christmas\s*$", before, re.IGNORECASE):
+        return True
+
+    # Proper name: Eve followed by a capitalized surname (e.g. "Eve Stoltzfus")
+    if re.match(r"\s+[A-Z][a-z]", after):
+        return True
+
+    # Preceded by a salutation or title (Dear Eve, Hi Eve, Dr. Eve …)
+    if _EVE_SALUTATIONS.search(before):
+        return True
+
+    # Preceded by a relationship noun (daughter Eve, my friend Eve, his sister Eve …)
+    if _EVE_RELATIONSHIPS.search(before):
+        return True
+
+    # Catch-all possessive + any word right before Eve ("my little Eve", "our sweet Eve" …)
+    if _EVE_POSSESSIVE_RELATIONSHIP.search(before):
+        return True
+
+    return False
+
+
+# Map short_form (lowercase key) → skip-check function
+_CONTEXT_EXCEPTIONS: Dict[str, Any] = {
+    "eve": _skip_eve,
+}
+
+
 def _apply_rules(text: str, rules: List[Tuple[str, str]]) -> Tuple[str, List[Dict[str, Any]]]:
     """Apply normalization rules to text. Returns (normalized_text, changes_list)."""
     normalized = text
     changes: List[Dict[str, Any]] = []
     uppercase_context = _context_is_uppercase(text)
+
     for short_form, expansion in rules:
         pattern = _build_pattern(short_form)
-        count = len(pattern.findall(normalized))
-        if count == 0:
-            continue
         applied = expansion.upper() if uppercase_context else expansion.lower()
-        normalized = pattern.sub(applied, normalized)
-        changes.append({"short_form": short_form, "expansion": expansion, "occurrences": count})
+        skip_check = _CONTEXT_EXCEPTIONS.get(short_form.lower())
+
+        if skip_check:
+            # Walk matches manually so we can consult context before substituting.
+            parts: List[str] = []
+            last = 0
+            count = 0
+            for m in pattern.finditer(normalized):
+                if skip_check(normalized, m):
+                    # Keep original text for this match
+                    parts.append(normalized[last:m.end()])
+                else:
+                    parts.append(normalized[last:m.start()])
+                    parts.append(applied)
+                    count += 1
+                last = m.end()
+            parts.append(normalized[last:])
+            normalized = "".join(parts)
+        else:
+            count = len(pattern.findall(normalized))
+            if count == 0:
+                continue
+            normalized = pattern.sub(applied, normalized)
+
+        if count > 0:
+            changes.append({"short_form": short_form, "expansion": expansion, "occurrences": count})
+
     return normalized, changes
 
 
