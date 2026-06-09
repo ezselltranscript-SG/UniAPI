@@ -122,27 +122,31 @@ def _get_context(text: str, start: int, end: int) -> str:
 def _build_prompt(text: str, matches: List[Dict[str, Any]]) -> str:
     match_lines = []
     for m in matches:
-        notes_text = f"\n  User notes: {m['notes']}" if m["notes"] else ""
+        notes_text = (
+            f"\n  NOTES (these take priority — follow them precisely): {m['notes']}"
+            if m["notes"] else ""
+        )
         match_lines.append(
             f"ID {m['id']}: \"{m['short_form']}\" → \"{m['expansion']}\""
             f"{notes_text}"
-            f"\n  Context: {m['context']}"
+            f"\n  Context snippet: {m['context']}"
         )
     return (
-        "You are processing a correspondence letter. For each potential word expansion, "
-        "decide whether the word should be expanded based on its context in the letter.\n\n"
-        "Rules:\n"
-        "- Expand the word when it is clearly being used as an abbreviation or short form\n"
-        "- Do NOT expand when the word is a common verb (e.g. 'am' in 'I am', 'she am')\n"
-        "- DO expand AM, PM, A.M., P.M. when they stand alone or follow a day/period word "
-        "(e.g. 'Sunday PM', 'Monday AM', 'a.m.' by itself — these SHOULD be expanded)\n"
-        "- Do NOT expand AM/PM or A.M./P.M. only when directly preceded by a clock time "
-        "(e.g. leave '7:30 AM', '9:00 PM', '7:30 A.M.', '9:00 P.M.' as-is)\n"
-        "- Do NOT expand when the word refers to something other than the expansion "
-        "(e.g. 'sun' as the celestial body should not expand to 'Sunday')\n"
-        "- Do NOT expand proper names (e.g. a person named 'Eve')\n"
-        "- If user notes are provided, use them to understand the intended meaning\n"
-        "- When genuinely uncertain, default to expanding\n\n"
+        "You are processing a correspondence letter. For each potential word expansion below, "
+        "decide whether the short form should be replaced with its expansion based on its context.\n\n"
+        "Decision rules (apply in order — stop at the first rule that matches):\n"
+        "1. If NOTES are provided for a match, follow them precisely — they override all rules below.\n"
+        "2. Do NOT expand when the word is a verb, even when the subject is omitted "
+        "(e.g. 'I am', 'but am sure', 'am going', 'am not').\n"
+        "3. Do NOT expand AM/PM or A.M./P.M. when directly preceded by a clock time "
+        "(e.g. '7:30 AM', '9:00 PM' — leave these as-is).\n"
+        "4. DO expand AM, PM, A.M., P.M. when they stand alone or follow a day/period word "
+        "(e.g. 'Sunday PM', 'Monday AM', 'a.m.' by itself).\n"
+        "5. Do NOT expand when the word refers to something other than the intended expansion "
+        "(e.g. 'sun' as the celestial body should not expand to 'Sunday').\n"
+        "6. Do NOT expand proper names.\n"
+        "7. Only expand when you are confident the word is being used as an abbreviation. "
+        "If genuinely uncertain, do NOT expand.\n\n"
         f"Full letter text:\n\"\"\"\n{text}\n\"\"\"\n\n"
         "Potential expansions:\n" + "\n\n".join(match_lines) + "\n\n"
         "Return ONLY valid JSON:\n"
