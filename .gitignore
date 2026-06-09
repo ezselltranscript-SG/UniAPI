@@ -36,3 +36,4 @@ tmp/
 # Logs
 logs/
 *.log
+.env
