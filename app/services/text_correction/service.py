@@ -102,7 +102,7 @@ class TextCorrectionService:
                     # Usar partial_ratio para mejorar coincidencias parciales
                     best_match = max(
                         towns,
-                        key=lambda town: max(fuzz.ratio(word.lower(), town.lower()), 
+                        key=lambda town: max(fuzz.ratio(word.lower(), town.lower()),
                                             fuzz.partial_ratio(word.lower(), town.lower()))
                     )
                     # Usar el mejor entre ratio y partial_ratio
