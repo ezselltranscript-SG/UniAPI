@@ -1,11 +1,14 @@
 import io
 import json
+import logging
 import os
 import re
 import time
 import urllib.parse
 import urllib.request
 from typing import Any, Dict, List, Tuple
+
+logger = logging.getLogger(__name__)
 
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -14,9 +17,11 @@ from docx.shared import Pt
 
 _NORM_CACHE: Dict[str, Any] = {"by_client": {}}
 _NORM_TTL_SECONDS = 300
+_CONTEXT_WINDOW = 80
 
 
-def _fetch_normalization_rules(client: str) -> List[Tuple[str, str]]:
+def _fetch_normalization_rules(client: str) -> List[Tuple[str, str, str]]:
+    """Returns list of (short_form, expansion, notes)."""
     supabase_url = (os.getenv("SUPABASE_URL") or "").strip().rstrip("/")
     supabase_key = (os.getenv("SUPABASE_KEY") or "").strip()
     if not supabase_url or not supabase_key:
@@ -28,28 +33,30 @@ def _fetch_normalization_rules(client: str) -> List[Tuple[str, str]]:
     if now - float(entry.get("ts") or 0.0) < _NORM_TTL_SECONDS:
         return list(entry.get("items") or [])
 
-    query = urllib.parse.urlencode({"select": "ShortForm,Expansion,Client"})
-    url = f"{supabase_url}/rest/v1/Normalization_Words_List?{query}"
-    req = urllib.request.Request(
-        url,
-        headers={
-            "apikey": supabase_key,
-            "Authorization": f"Bearer {supabase_key}",
-            "Accept": "application/json",
-        },
-        method="GET",
-    )
+    headers = {
+        "apikey": supabase_key,
+        "Authorization": f"Bearer {supabase_key}",
+        "Accept": "application/json",
+    }
 
-    try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            rows = json.loads(resp.read().decode("utf-8"))
-    except Exception:
+    rows = None
+    for columns in ("ShortForm,Expansion,Notes,Client", "ShortForm,Expansion,Client"):
+        query = urllib.parse.urlencode({"select": columns})
+        url = f"{supabase_url}/rest/v1/Normalization_Words_List?{query}"
+        req = urllib.request.Request(url, headers=headers, method="GET")
+        try:
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            if isinstance(data, list):
+                rows = data
+                break
+        except Exception:
+            continue
+
+    if rows is None:
         return []
 
-    if not isinstance(rows, list):
-        return []
-
-    items: List[Tuple[str, str]] = []
+    items: List[Tuple[str, str, str]] = []
     for row in rows:
         if not isinstance(row, dict):
             continue
@@ -58,8 +65,9 @@ def _fetch_normalization_rules(client: str) -> List[Tuple[str, str]]:
             continue
         short_form = (row.get("ShortForm") or "").strip()
         expansion = (row.get("Expansion") or "").strip()
+        notes = (row.get("Notes") or "").strip()
         if short_form and expansion:
-            items.append((short_form, expansion))
+            items.append((short_form, expansion, notes))
 
     if not isinstance(_NORM_CACHE.get("by_client"), dict):
         _NORM_CACHE["by_client"] = {}
@@ -67,113 +75,217 @@ def _fetch_normalization_rules(client: str) -> List[Tuple[str, str]]:
     return items
 
 
+def _extract_alternate_forms(notes: str, short_form: str) -> List[str]:
+    """Pull dotted/alternate forms out of the notes (e.g. 'A.M.', 'P.M.')."""
+    if not notes:
+        return []
+    alts = re.findall(r'[A-Za-z](?:\.[A-Za-z])+\.?', notes)
+    return [a for a in alts if a.lower() != short_form.lower()]
+
+
+def _expand_rules_with_alternates(rules: List[Tuple[str, str, str]]) -> List[Tuple[str, str, str]]:
+    """For each rule, append extra entries for any alternate forms found in its notes."""
+    expanded: List[Tuple[str, str, str]] = []
+    for short_form, expansion, notes in rules:
+        expanded.append((short_form, expansion, notes))
+        for alt in _extract_alternate_forms(notes, short_form):
+            expanded.append((alt, expansion, notes))
+    return expanded
+
+
 def _build_pattern(short_form: str) -> re.Pattern:
     escaped = re.escape(short_form)
+    if re.fullmatch(r"[A-Za-z]+", short_form):
+        # Allow matching after digits (e.g. "73deg" → "73 degrees").
+        # (?<![A-Za-z]) prevents matching inside other words while still
+        # catching the word immediately after a number.
+        return re.compile(rf"(?<![A-Za-z]){escaped}(?![A-Za-z0-9])", re.IGNORECASE)
     if re.fullmatch(r"[A-Za-z0-9']+", short_form):
         return re.compile(rf"\b{escaped}\b", re.IGNORECASE)
     return re.compile(escaped, re.IGNORECASE)
 
 
 def _context_is_uppercase(text: str) -> bool:
-    """Return True if the majority of alphabetic characters in text are uppercase."""
     alpha = [c for c in text if c.isalpha()]
     if not alpha:
         return False
     return sum(1 for c in alpha if c.isupper()) / len(alpha) > 0.5
 
 
-# --- Context exception helpers ---
-# Each function receives (text, match) and returns True to SKIP that match.
-
-_EVE_SALUTATIONS = re.compile(
-    r"\b(dear|hi|hello|mr\.?|mrs\.?|ms\.?|dr\.?|miss|saint|st\.?)\s*$",
-    re.IGNORECASE,
-)
-
-_EVE_RELATIONSHIPS = re.compile(
-    r"\b(?:my|our|his|her|their|your\s+)?"
-    r"(?:daughter|son|mother|father|sister|brother|aunt|uncle|"
-    r"friend|wife|husband|neighbor|neighbour|colleague|coworker|partner|"
-    r"niece|nephew|granddaughter|grandson|grandmother|grandfather|"
-    r"grandma|grandpa|mom|dad|sis|cousin|fianc[eé]e?|"
-    r"client|patient|neighbor|associate|classmate|roommate|teammate)\s*$",
-    re.IGNORECASE,
-)
-
-# Matches "my friend", "our neighbor", "his daughter", etc. before "Eve"
-_EVE_POSSESSIVE_RELATIONSHIP = re.compile(
-    r"\b(?:my|our|his|her|their|your)\s+\w+\s*$",
-    re.IGNORECASE,
-)
+def _get_context(text: str, start: int, end: int) -> str:
+    before = text[max(0, start - _CONTEXT_WINDOW):start]
+    matched = text[start:end]
+    after = text[end:end + _CONTEXT_WINDOW]
+    return f"{before}[{matched}]{after}"
 
 
-def _skip_eve(text: str, m: re.Match) -> bool:
-    """Skip 'Eve' when it is part of 'Christmas Eve' or appears to be a proper name."""
-    start, end = m.start(), m.end()
-    before = text[max(0, start - 40):start]
-    after = text[end:end + 25]
-
-    # Christmas Eve (any casing)
-    if re.search(r"christmas\s*$", before, re.IGNORECASE):
-        return True
-
-    # Proper name: Eve followed by a capitalized surname (e.g. "Eve Stoltzfus")
-    if re.match(r"\s+[A-Z][a-z]", after):
-        return True
-
-    # Preceded by a salutation or title (Dear Eve, Hi Eve, Dr. Eve …)
-    if _EVE_SALUTATIONS.search(before):
-        return True
-
-    # Preceded by a relationship noun (daughter Eve, my friend Eve, his sister Eve …)
-    if _EVE_RELATIONSHIPS.search(before):
-        return True
-
-    # Catch-all possessive + any word right before Eve ("my little Eve", "our sweet Eve" …)
-    if _EVE_POSSESSIVE_RELATIONSHIP.search(before):
-        return True
-
-    return False
-
-
-# Map short_form (lowercase key) → skip-check function
-_CONTEXT_EXCEPTIONS: Dict[str, Any] = {
-    "eve": _skip_eve,
-}
+def _build_prompt(text: str, matches: List[Dict[str, Any]]) -> str:
+    match_lines = []
+    for m in matches:
+        notes_text = f"\n  User notes: {m['notes']}" if m["notes"] else ""
+        match_lines.append(
+            f"ID {m['id']}: \"{m['short_form']}\" → \"{m['expansion']}\""
+            f"{notes_text}"
+            f"\n  Context: {m['context']}"
+        )
+    return (
+        "You are processing a correspondence letter. For each potential word expansion, "
+        "decide whether the word should be expanded based on its context in the letter.\n\n"
+        "Rules:\n"
+        "- Expand the word when it is clearly being used as an abbreviation or short form\n"
+        "- Do NOT expand when the word is a common verb (e.g. 'am' in 'I am', 'she am')\n"
+        "- DO expand AM, PM, A.M., P.M. when they stand alone or follow a day/period word "
+        "(e.g. 'Sunday PM', 'Monday AM', 'a.m.' by itself — these SHOULD be expanded)\n"
+        "- Do NOT expand AM/PM or A.M./P.M. only when directly preceded by a clock time "
+        "(e.g. leave '7:30 AM', '9:00 PM', '7:30 A.M.', '9:00 P.M.' as-is)\n"
+        "- Do NOT expand when the word refers to something other than the expansion "
+        "(e.g. 'sun' as the celestial body should not expand to 'Sunday')\n"
+        "- Do NOT expand proper names (e.g. a person named 'Eve')\n"
+        "- If user notes are provided, use them to understand the intended meaning\n"
+        "- When genuinely uncertain, default to expanding\n\n"
+        f"Full letter text:\n\"\"\"\n{text}\n\"\"\"\n\n"
+        "Potential expansions:\n" + "\n\n".join(match_lines) + "\n\n"
+        "Return ONLY valid JSON:\n"
+        '{"decisions": [{"id": <int>, "expand": <bool>}]}'
+    )
 
 
-def _apply_rules(text: str, rules: List[Tuple[str, str]]) -> Tuple[str, List[Dict[str, Any]]]:
-    """Apply normalization rules to text. Returns (normalized_text, changes_list)."""
-    normalized = text
-    changes: List[Dict[str, Any]] = []
+def _parse_ai_response(response_text: str, matches: List[Dict[str, Any]]) -> Dict[int, bool]:
+    json_match = re.search(r"\{.*\}", response_text, re.DOTALL)
+    if not json_match:
+        return {m["id"]: True for m in matches}
+    data = json.loads(json_match.group())
+    decisions = {int(d["id"]): bool(d["expand"]) for d in data.get("decisions", [])}
+    skipped = [m["short_form"] for m in matches if not decisions.get(m["id"], True)]
+    expanded = [m["short_form"] for m in matches if decisions.get(m["id"], True)]
+    logger.info("AI decisions — expand: %s | skip: %s", expanded, skipped)
+    return decisions
+
+
+def _ai_context_decisions(text: str, matches: List[Dict[str, Any]]) -> Dict[int, bool]:
+    """
+    Ask an LLM whether each match should be expanded based on context.
+
+    Provider selection (checked in order):
+      1. Anthropic — if ANTHROPIC_API_KEY is set in the environment.
+      2. OpenAI    — if OPENAI_API_KEY is set in the environment.
+      3. No AI     — all matches default to expand=True.
+
+    Returns {match_id: should_expand}.
+    """
+    if not matches:
+        return {}
+
+    anthropic_key = (os.getenv("ANTHROPIC_API_KEY") or "").strip()
+    openai_key = (os.getenv("OPENAI_API_KEY") or "").strip()
+
+    if not anthropic_key and not openai_key:
+        logger.warning("No AI API key found (ANTHROPIC_API_KEY / OPENAI_API_KEY) — all matches will expand")
+        return {m["id"]: True for m in matches}
+
+    prompt = _build_prompt(text, matches)
+
+    # --- Anthropic (preferred) ---
+    if anthropic_key:
+        try:
+            import anthropic
+            logger.info("AI context check: sending %d match(es) to Anthropic claude-haiku", len(matches))
+            ai_client = anthropic.Anthropic(api_key=anthropic_key)
+            message = ai_client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=1024,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            return _parse_ai_response(message.content[0].text.strip(), matches)
+        except ImportError:
+            logger.warning("anthropic package not installed — trying OpenAI fallback")
+        except Exception as exc:
+            logger.error("Anthropic AI check failed (%s) — trying OpenAI fallback", exc)
+
+    # --- OpenAI (fallback) ---
+    if openai_key:
+        try:
+            import openai as openai_module
+            logger.info("AI context check: sending %d match(es) to OpenAI gpt-4o-mini", len(matches))
+            oa_client = openai_module.OpenAI(api_key=openai_key)
+            completion = oa_client.chat.completions.create(
+                model="gpt-4o-mini",
+                max_tokens=1024,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            return _parse_ai_response(completion.choices[0].message.content.strip(), matches)
+        except ImportError:
+            logger.warning("openai package not installed — skipping AI context check")
+        except Exception as exc:
+            logger.error("OpenAI AI check failed (%s) — falling back to expand all", exc)
+
+    return {m["id"]: True for m in matches}
+
+
+def _apply_rules(text: str, rules: List[Tuple[str, str, str]]) -> Tuple[str, List[Dict[str, Any]]]:
+    """Apply normalization rules with AI context checking. Returns (normalized_text, changes_list)."""
     uppercase_context = _context_is_uppercase(text)
 
-    for short_form, expansion in rules:
+    # Collect all potential matches from the original text for a single batched AI call.
+    # Keyed by (short_form_lower, occurrence_index) so decisions survive sequential substitutions.
+    all_match_requests: List[Dict[str, Any]] = []
+    occurrence_to_id: Dict[Tuple[str, int], int] = {}
+    match_id = 0
+
+    for short_form, expansion, notes in rules:
+        pattern = _build_pattern(short_form)
+        for occ_idx, m in enumerate(pattern.finditer(text)):
+            all_match_requests.append({
+                "id": match_id,
+                "short_form": short_form,
+                "expansion": expansion,
+                "notes": notes,
+                "context": _get_context(text, m.start(), m.end()),
+            })
+            occurrence_to_id[(short_form.lower(), occ_idx)] = match_id
+            match_id += 1
+
+    # Single AI call for all matches in this text block
+    all_decisions = _ai_context_decisions(text, all_match_requests)
+
+    expand_map: Dict[Tuple[str, int], bool] = {
+        key: all_decisions.get(mid, True)
+        for key, mid in occurrence_to_id.items()
+    }
+
+    # Apply rules sequentially using the saved decisions.
+    # Occurrence indices stay stable because well-formed abbreviation rules don't
+    # introduce new instances of each other's short forms.
+    changes: List[Dict[str, Any]] = []
+    normalized = text
+
+    for short_form, expansion, notes in rules:
         pattern = _build_pattern(short_form)
         applied = expansion.upper() if uppercase_context else expansion.lower()
-        skip_check = _CONTEXT_EXCEPTIONS.get(short_form.lower())
+        sf_lower = short_form.lower()
 
-        if skip_check:
-            # Walk matches manually so we can consult context before substituting.
-            parts: List[str] = []
-            last = 0
-            count = 0
-            for m in pattern.finditer(normalized):
-                if skip_check(normalized, m):
-                    # Keep original text for this match
-                    parts.append(normalized[last:m.end()])
-                else:
-                    parts.append(normalized[last:m.start()])
-                    parts.append(applied)
-                    count += 1
-                last = m.end()
-            parts.append(normalized[last:])
-            normalized = "".join(parts)
-        else:
-            count = len(pattern.findall(normalized))
-            if count == 0:
-                continue
-            normalized = pattern.sub(applied, normalized)
+        current_matches = list(pattern.finditer(normalized))
+        if not current_matches:
+            continue
+
+        parts: List[str] = []
+        last = 0
+        count = 0
+
+        for occ_idx, m in enumerate(current_matches):
+            if expand_map.get((sf_lower, occ_idx), True):
+                parts.append(normalized[last:m.start()])
+                # Insert a space when the match is directly adjacent to alphanumeric text
+                # (e.g. "73deg" → "73 degrees" instead of "73degrees").
+                needs_space = m.start() > 0 and normalized[m.start() - 1].isalnum()
+                parts.append((" " if needs_space else "") + applied)
+                count += 1
+            else:
+                parts.append(normalized[last:m.end()])
+            last = m.end()
+
+        parts.append(normalized[last:])
+        normalized = "".join(parts)
 
         if count > 0:
             changes.append({"short_form": short_form, "expansion": expansion, "occurrences": count})
@@ -191,12 +303,11 @@ def normalize_text(date: str, body: str, client: str) -> Dict[str, Any]:
       - changes: list of {short_form, expansion, occurrences}
       - total_changes: int
     """
-    rules = _fetch_normalization_rules(client)
+    rules = _expand_rules_with_alternates(_fetch_normalization_rules(client))
 
     normalized_date, date_changes = _apply_rules(date, rules)
     normalized_body, body_changes = _apply_rules(body, rules)
 
-    # Merge changes, combining counts for the same short_form
     merged: Dict[str, Dict[str, Any]] = {}
     for change in date_changes + body_changes:
         key = change["short_form"]
