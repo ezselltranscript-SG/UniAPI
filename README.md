@@ -18,7 +18,8 @@ This project unifies various document processing, transcription, and letter gene
 12. **Text Correction** - Corrige nombres de ciudades en textos usando coincidencia difusa
 13. **Shower Cropper** - Recorta automáticamente el área donde típicamente aparece el texto manuscrito o rellenado en formularios
 14. **Column Merger** - Formatea archivos de texto en un documento PDF con diseño de tres columnas, especialmente para obituarios y anuncios de shower
-15. *Additional services to be added*
+15. **PDF Normalizer** - Revisa visualmente escaneos, corrige la orientación y garantiza pares de páginas para cartas de dos caras
+16. *Additional services to be added*
 
 ### Service Details
 
@@ -129,6 +130,19 @@ Fusiona documentos Word de un archivo comprimido manteniendo el formato original
 - **Output Format**: Documento Word (.docx) con todas las páginas combinadas
 - **Requirements**: Requiere python-docx y docxcompose para la manipulación de documentos Word
 
+#### PDF Normalizer
+Normaliza PDFs escaneados antes de los procesos que esperan cartas de dos páginas.
+- **Endpoint**: `/pdf-normalizer/normalize/`
+- **Features**: La revisión visual separa dos decisiones: orientación en grupos pequeños y límites de cartas comparando cada par de páginas adyacentes. Una segunda señal local corrige rotaciones claramente equivocadas o ignoradas por el modelo. El servicio calcula las páginas negras de forma determinista y solamente después de una carta incompleta con un número impar de páginas (1, 3, 5, ...). Las cartas de 2, 4 o cualquier número par de páginas ya tienen todos sus lados y no reciben una página negra. La página negra queda en el límite de la carta, no se agrega automáticamente al final del archivo.
+- **Limit**: El análisis visual admite hasta 80 páginas por PDF y las procesa en lotes pequeños para evitar que el modelo omita decisiones.
+- **Parameters**:
+  - `file` - Archivo PDF
+  - `auto_rotate` - Aplica las rotaciones revisadas (default: `true`)
+  - `ensure_page_pairs` - Inserta las páginas negras revisadas (default: `true`)
+  - `review_mode` - `vision` (default) usa el modelo de visión; `heuristic` es el respaldo sin LLM y debe elegirse explícitamente.
+  - `vision_model` - Reemplazo opcional del modelo de visión configurado.
+- **Output Format**: PDF normalizado; los encabezados incluyen `X-Review-Mode`, `X-Review-Model`, `X-Letter-Start-Pages`, `X-Applied-Rotations`, `X-Rotation-Overrides`, páginas de entrada/salida, páginas negras agregadas y las páginas fuente después de las cuales se insertaron.
+
 ## Requirements
 
 - Python 3.8+
@@ -157,6 +171,11 @@ CORS_ORIGINS=*
 # Supabase Configuration (for Text Correction service)
 SUPABASE_URL=your_supabase_url
 SUPABASE_KEY=your_supabase_key
+
+# PDF Normalizer (required when review_mode=vision, which is the default)
+OPENAI_API_KEY=your_openai_api_key
+# Optional; defaults to gpt-5.6-terra
+PDF_NORMALIZER_VISION_MODEL=gpt-5.6-terra
 ```
 
 ## Execution
