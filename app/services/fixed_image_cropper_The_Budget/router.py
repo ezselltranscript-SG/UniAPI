@@ -5,6 +5,7 @@ from fastapi import APIRouter, File, UploadFile, HTTPException
 from fastapi.responses import StreamingResponse
 
 from .service import FixedImageCropperTheBudgetService
+from app.concurrency import run_blocking
 
 # Create router for Fixed Image Cropper The Budget service
 router = APIRouter()
@@ -42,8 +43,10 @@ async def crop_image_fixed_the_budget(
         content = await image_file.read()
 
         try:
-            result = FixedImageCropperTheBudgetService.crop_image_fixed_the_budget(
-                content, image_file.filename
+            result = await run_blocking(
+                FixedImageCropperTheBudgetService.crop_image_fixed_the_budget,
+                content,
+                image_file.filename,
             )
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error processing image: {str(e)}")

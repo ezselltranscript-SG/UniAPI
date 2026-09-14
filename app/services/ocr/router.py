@@ -3,6 +3,7 @@ from fastapi.responses import JSONResponse
 from typing import Optional
 
 from .service import OCRService
+from app.concurrency import run_blocking
 
 router = APIRouter(
     prefix="/ocr",
@@ -31,7 +32,11 @@ async def ocr_image(
     
     try:
         # Realizar OCR
-        text = OCRService.perform_ocr_on_image(file_content, lang=lang)
+        text = await run_blocking(
+            OCRService.perform_ocr_on_image,
+            file_content,
+            lang=lang,
+        )
         
         # Devolver resultado
         return JSONResponse(content={"text": text})
@@ -61,7 +66,11 @@ async def ocr_pdf(
     
     try:
         # Realizar OCR
-        result = OCRService.perform_ocr_on_pdf(file_content, lang=lang)
+        result = await run_blocking(
+            OCRService.perform_ocr_on_pdf,
+            file_content,
+            lang=lang,
+        )
         
         # Filtrar resultado si es necesario
         if pages_only:

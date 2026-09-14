@@ -8,6 +8,7 @@ from typing import List, Optional
 from app.config import DOWNLOADS_DIR
 from .service import WordToPdfService
 import logging
+from app.concurrency import run_blocking, LIBREOFFICE_LOCK
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
@@ -57,9 +58,11 @@ async def convert_to_pdf(file: UploadFile = File(...), background_tasks: Backgro
         
         # Usar el servicio para convertir el documento con las nuevas funcionalidades
         word_to_pdf_service = WordToPdfService()
-        result = word_to_pdf_service.convert_to_pdf(
+        result = await run_blocking(
+            word_to_pdf_service.convert_to_pdf,
             word_data=word_data,
-            filename=file.filename
+            filename=file.filename,
+            serialize_with=LIBREOFFICE_LOCK,
         )
         
         # Crear una copia del PDF en una ubicación más persistente

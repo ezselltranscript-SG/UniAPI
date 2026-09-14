@@ -18,6 +18,12 @@ API_HOST = os.getenv("API_HOST", "0.0.0.0")
 API_PORT = int(os.getenv("API_PORT", "8000"))
 API_RELOAD = os.getenv("API_RELOAD", "True").lower() == "true"
 
+# Outbound AI calls (Anthropic / OpenAI). Without an explicit timeout the SDK
+# defaults (up to 10 minutes per attempt, plus retries) let one slow call tie
+# up a worker for a very long time.
+AI_REQUEST_TIMEOUT_SECONDS = float(os.getenv("AI_REQUEST_TIMEOUT_SECONDS", "60"))
+AI_MAX_RETRIES = int(os.getenv("AI_MAX_RETRIES", "3"))
+
 # CORS settings
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*").split(",")
 

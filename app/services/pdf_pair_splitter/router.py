@@ -8,6 +8,7 @@ from fastapi.responses import FileResponse
 
 from app.config import DOWNLOADS_DIR
 from .service import PDFPairSplitterService
+from app.concurrency import run_blocking
 
 # Create router for PDF Pair Splitter service
 router = APIRouter()
@@ -57,7 +58,11 @@ async def split_pdf_pairs(pdf_file: Annotated[UploadFile, File(description="PDF 
             os.makedirs(output_folder, exist_ok=True)
             
             # Split the PDF into pairs of pages using the service
-            result = PDFPairSplitterService.split_page_pairs(pdf_path, output_folder)
+            result = await run_blocking(
+                PDFPairSplitterService.split_page_pairs,
+                pdf_path,
+                output_folder,
+            )
             
             # Create a copy of the ZIP file in a more persistent location
             persistent_zip = os.path.join(DOWNLOADS_DIR, result["zip_filename"])

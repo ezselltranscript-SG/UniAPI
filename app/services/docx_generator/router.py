@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from app.config import DOWNLOADS_DIR
 from .service import DocxGeneratorService
+from app.concurrency import run_blocking
 
 router = APIRouter()
 
@@ -42,7 +43,7 @@ async def read_root():
 async def generate_docx(payload: DocxPayload, as_base64: bool = Query(False, description="Si es true, retorna JSON con base64 en lugar de archivo")):
     try:
         service = DocxGeneratorService()
-        result = service.generate_docx(payload.model_dump())
+        result = await run_blocking(service.generate_docx, payload.model_dump())
 
         # Move to persistent downloads directory
         os.makedirs(DOWNLOADS_DIR, exist_ok=True)

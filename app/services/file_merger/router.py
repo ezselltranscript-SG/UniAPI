@@ -7,6 +7,7 @@ from fastapi.responses import FileResponse
 
 from app.config import DOWNLOADS_DIR
 from .service import FileMergerService
+from app.concurrency import run_blocking
 
 # Create router for File Merger service
 router = APIRouter()
@@ -63,10 +64,11 @@ async def merge_files(
             
             # Usar el servicio para procesar y fusionar los archivos
             file_merger = FileMergerService()
-            result = file_merger.merge_files(
+            result = await run_blocking(
+                file_merger.merge_files,
                 archive_data=archive_data,
                 output_filename=output_filename,
-                temp_dir=temp_dir
+                temp_dir=temp_dir,
             )
             
             # Crear una copia del archivo en una ubicación más persistente

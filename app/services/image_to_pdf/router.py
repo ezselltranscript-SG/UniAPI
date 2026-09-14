@@ -4,6 +4,7 @@ from typing import List, Optional
 import io
 
 from .service import ImageToPDFService
+from app.concurrency import run_blocking
 
 router = APIRouter(
     prefix="/image-to-pdf",
@@ -32,7 +33,11 @@ async def convert_image_to_pdf(
     
     try:
         # Convertir imagen a PDF
-        pdf_bytes = ImageToPDFService.convert_image_to_pdf(file_content, page_size=page_size)
+        pdf_bytes = await run_blocking(
+            ImageToPDFService.convert_image_to_pdf,
+            file_content,
+            page_size=page_size,
+        )
         
         # Devolver el PDF como respuesta de streaming
         return StreamingResponse(
@@ -68,7 +73,11 @@ async def convert_multiple_images_to_pdf(
             image_bytes_list.append(file_content)
         
         # Convertir imágenes a PDF
-        pdf_bytes = ImageToPDFService.convert_multiple_images_to_pdf(image_bytes_list, page_size=page_size)
+        pdf_bytes = await run_blocking(
+            ImageToPDFService.convert_multiple_images_to_pdf,
+            image_bytes_list,
+            page_size=page_size,
+        )
         
         # Devolver el PDF como respuesta de streaming
         return StreamingResponse(

@@ -8,6 +8,7 @@ from fastapi.responses import FileResponse
 
 from app.config import DOWNLOADS_DIR
 from .service import PDFSplitterService
+from app.concurrency import run_blocking
 
 # Create router for PDF Splitter service
 router = APIRouter()
@@ -58,7 +59,11 @@ async def split_pdf(pdf_file: Annotated[UploadFile, File(description="PDF file t
             
             # Split the PDF into individual pages using the service
             pdf_service = PDFSplitterService()
-            pdf_service.split_pages(pdf_path, output_folder)
+            await run_blocking(
+                pdf_service.split_pages,
+                pdf_path,
+                output_folder,
+            )
             
             # Create a ZIP file containing all the split pages
             zip_basename = os.path.join(temp_dir, folder_name)

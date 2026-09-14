@@ -6,6 +6,7 @@ from typing import Optional
 from fastapi import APIRouter, File, UploadFile, Form, BackgroundTasks, Query, HTTPException
 from fastapi.responses import FileResponse
 from .service import ColumnMergerService
+from app.concurrency import run_blocking, LIBREOFFICE_LOCK
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
@@ -56,10 +57,12 @@ async def merge_columns(
         archive_data = await file.read()
         
         # Procesar el archivo con el servicio
-        result = ColumnMergerService.merge_documents(
+        result = await run_blocking(
+            ColumnMergerService.merge_documents,
             archive_data=archive_data,
             output_filename=output_filename,
-            temp_dir=temp_dir
+            temp_dir=temp_dir,
+            serialize_with=LIBREOFFICE_LOCK,
         )
         
         # Copiar el archivo a un directorio temporal que no se eliminará inmediatamente
@@ -110,10 +113,12 @@ async def word_to_pdf(
         word_data = await file.read()
         
         # Procesar el archivo con el servicio para convertir a PDF
-        result = ColumnMergerService.convert_word_bytes_to_pdf(
+        result = await run_blocking(
+            ColumnMergerService.convert_word_bytes_to_pdf,
             word_data=word_data,
             filename=file.filename,
-            temp_dir=temp_dir
+            temp_dir=temp_dir,
+            serialize_with=LIBREOFFICE_LOCK,
         )
         
         # Copiar el archivo PDF a un directorio temporal que no se eliminará inmediatamente

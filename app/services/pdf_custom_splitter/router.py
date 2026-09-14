@@ -8,6 +8,7 @@ from fastapi.responses import FileResponse
 
 from app.config import DOWNLOADS_DIR
 from .service import PDFCustomSplitterService
+from app.concurrency import run_blocking
 
 # Create router for PDF Custom Splitter service
 router = APIRouter()
@@ -68,7 +69,12 @@ async def split_pdf_custom(
             os.makedirs(output_folder, exist_ok=True)
             
             # Split the PDF into custom page groups using the service
-            result = PDFCustomSplitterService.split_by_page_count(pdf_path, output_folder, pages_per_file)
+            result = await run_blocking(
+                PDFCustomSplitterService.split_by_page_count,
+                pdf_path,
+                output_folder,
+                pages_per_file,
+            )
             
             # Create a copy of the ZIP file in a more persistent location
             persistent_zip = os.path.join(DOWNLOADS_DIR, result["zip_filename"])

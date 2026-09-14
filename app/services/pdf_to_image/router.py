@@ -7,6 +7,7 @@ from typing import Optional
 
 from app.config import DOWNLOADS_DIR
 from .service import PDFToImageService
+from app.concurrency import run_blocking
 
 # Configurar router para el servicio PDF to Image
 router = APIRouter()
@@ -57,9 +58,10 @@ async def convert_pdf(
         
         # Usar el servicio para convertir el PDF a imágenes
         pdf_to_image_service = PDFToImageService()
-        result = pdf_to_image_service.convert_pdf_to_images(
+        result = await run_blocking(
+            pdf_to_image_service.convert_pdf_to_images,
             pdf_bytes=pdf_bytes,
-            format=format
+            format=format,
         )
         
         # Devolver el resultado

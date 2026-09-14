@@ -4,6 +4,7 @@ from typing import Optional
 import io
 
 from .service import ImageCropperService
+from app.concurrency import run_blocking
 
 # Create router for Image Cropper service
 router = APIRouter()
@@ -71,11 +72,12 @@ async def crop_image(
         
         # Usar el servicio para procesar la imagen
         image_cropper = ImageCropperService()
-        result = image_cropper.crop_image(
+        result = await run_blocking(
+            image_cropper.crop_image,
             image_data=image_data,
             filename=file.filename,
             split_point=split_point,
-            split_percentage=split_percentage
+            split_percentage=split_percentage,
         )
         
         return StreamingResponse(

@@ -5,6 +5,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from .service import normalize_text, build_report_docx
+from app.concurrency import run_blocking
 
 router = APIRouter()
 
@@ -44,9 +45,18 @@ async def normalize(payload: NormalizationRequest):
     - **file**: base64-encoded Word document listing every substitution made and the total count
     """
     try:
-        result = normalize_text(payload.date, payload.body, payload.client)
+        result = await run_blocking(
+            normalize_text,
+            payload.date,
+            payload.body,
+            payload.client,
+        )
 
-        docx_bytes = build_report_docx(result["changes"], result["total_changes"])
+        docx_bytes = await run_blocking(
+            build_report_docx,
+            result["changes"],
+            result["total_changes"],
+        )
         encoded = base64.b64encode(docx_bytes).decode("utf-8")
 
         return JSONResponse(

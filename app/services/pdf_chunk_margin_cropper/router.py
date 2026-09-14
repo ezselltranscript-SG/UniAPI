@@ -6,6 +6,7 @@ from fastapi import APIRouter, File, UploadFile, HTTPException, Query
 from fastapi.responses import StreamingResponse
 
 from . import service as crop_text_box
+from app.concurrency import run_blocking, PYMUPDF_LOCK
 
 
 router = APIRouter()
@@ -54,11 +55,13 @@ async def process_pdf(
             )
 
         try:
-            result = crop_text_box.PDFChunkMarginCropperService.process_pdf(
+            result = await run_blocking(
+                crop_text_box.PDFChunkMarginCropperService.process_pdf,
                 pdf_bytes=pdf_bytes,
                 chunk_size=chunk_size,
                 dpi=dpi,
                 mode=mode,
+                serialize_with=PYMUPDF_LOCK,
             )
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error processing PDF: {str(e)}")

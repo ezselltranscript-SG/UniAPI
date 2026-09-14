@@ -116,7 +116,13 @@ class PDFVisionReviewer:
             import openai
         except ImportError as exc:
             raise VisionReviewError("The OpenAI SDK is not installed") from exc
-        return openai.OpenAI(api_key=api_key)
+        from app.config import AI_MAX_RETRIES, AI_REQUEST_TIMEOUT_SECONDS
+
+        return openai.OpenAI(
+            api_key=api_key,
+            timeout=AI_REQUEST_TIMEOUT_SECONDS,
+            max_retries=AI_MAX_RETRIES,
+        )
 
     def _review_rotations(
         self,

@@ -15,4 +15,9 @@ services:
         value: false
       - key: CORS_ORIGINS
         value: "*"
+      # uvicorn reads this for its worker count (default 1). Each worker is a
+      # separate process with its own memory; raise to 2 only if the plan has
+      # the RAM (the heavy endpoints already run off the event loop).
+      - key: WEB_CONCURRENCY
+        value: "1"
     autoDeploy: true

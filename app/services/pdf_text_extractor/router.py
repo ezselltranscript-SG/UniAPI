@@ -3,6 +3,7 @@ from fastapi.responses import JSONResponse
 from typing import Optional
 
 from .service import PDFTextExtractorService
+from app.concurrency import run_blocking
 
 router = APIRouter(
     prefix="/pdf-text-extractor",
@@ -31,7 +32,11 @@ async def extract_text_from_pdf(
     
     try:
         # Extraer texto
-        result = PDFTextExtractorService.extract_text_from_pdf(file_content, return_by_page=by_page)
+        result = await run_blocking(
+            PDFTextExtractorService.extract_text_from_pdf,
+            file_content,
+            return_by_page=by_page,
+        )
         
         # Devolver resultado
         return JSONResponse(content=result)
@@ -57,7 +62,7 @@ async def extract_text_with_metadata(
     
     try:
         # Extraer texto y metadatos
-        result = PDFTextExtractorService.extract_text_with_metadata(file_content)
+        result = await run_blocking(PDFTextExtractorService.extract_text_with_metadata, file_content)
         
         # Devolver resultado
         return JSONResponse(content=result)
@@ -89,7 +94,11 @@ async def extract_text_to_file(
     
     try:
         # Extraer texto
-        result = PDFTextExtractorService.extract_text_from_pdf(file_content, return_by_page=False)
+        result = await run_blocking(
+            PDFTextExtractorService.extract_text_from_pdf,
+            file_content,
+            return_by_page=False,
+        )
         text = result.get("text", "")
         
         # Devolver como archivo de texto

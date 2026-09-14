@@ -10,6 +10,7 @@ from fastapi.responses import StreamingResponse
 
 from .service import PDFNormalizerService
 from .vision import VisionReviewError
+from app.concurrency import run_blocking, PYMUPDF_LOCK
 
 
 router = APIRouter()
@@ -59,12 +60,14 @@ async def normalize_pdf(
         raise HTTPException(status_code=400, detail="File must be a PDF")
 
     try:
-        result = PDFNormalizerService.normalize_pdf(
+        result = await run_blocking(
+            PDFNormalizerService.normalize_pdf,
             await file.read(),
             auto_rotate=auto_rotate,
             ensure_page_pairs=ensure_page_pairs,
             review_mode=review_mode,
             vision_model=vision_model,
+            serialize_with=PYMUPDF_LOCK,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

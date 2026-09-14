@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from typing import Dict, Any
 from .service import TextCorrectionService
 import logging
+from app.concurrency import run_blocking
 
 # Configurar logger
 logger = logging.getLogger(__name__)
@@ -30,9 +31,10 @@ async def correct_text(request: TextCorrectionRequest = Body(...)):
     - **threshold**: Umbral de similitud (0-100). Por defecto: 85
     """
     try:
-        corrected_text = TextCorrectionService.correct_text(
+        corrected_text = await run_blocking(
+            TextCorrectionService.correct_text,
             text=request.text,
-            threshold=request.threshold
+            threshold=request.threshold,
         )
         return {"corrected_text": corrected_text}
     except Exception as e:

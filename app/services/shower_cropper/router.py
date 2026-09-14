@@ -6,6 +6,7 @@ from fastapi.responses import StreamingResponse
 
 from app.config import DOWNLOADS_DIR
 from .service import ShowerCropperService
+from app.concurrency import run_blocking
 
 # Create router for Shower Cropper service
 router = APIRouter()
@@ -50,7 +51,11 @@ async def crop_to_fixed_area(
         
         # Process the image using the service
         try:
-            result = ShowerCropperService.crop_fixed_area(content, image_file.filename)
+            result = await run_blocking(
+                ShowerCropperService.crop_fixed_area,
+                content,
+                image_file.filename,
+            )
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error processing image: {str(e)}")
         
@@ -103,7 +108,11 @@ async def crop_to_obituaries_area(
         
         # Process the image using the service
         try:
-            result = ShowerCropperService.crop_fixed_area_obituaries(content, image_file.filename)
+            result = await run_blocking(
+                ShowerCropperService.crop_fixed_area_obituaries,
+                content,
+                image_file.filename,
+            )
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error processing image: {str(e)}")
         

@@ -8,6 +8,7 @@ from fastapi import APIRouter, UploadFile, File, HTTPException, Query
 from fastapi.responses import StreamingResponse
 
 from .service import AnchoredPdfCropperService
+from app.concurrency import run_blocking, PYMUPDF_LOCK
 
 router = APIRouter()
 
@@ -39,7 +40,7 @@ async def crop_pdfs(files: List[UploadFile] = File(...)):
 
     try:
         # Fully automatic: rely on service defaults
-        result = AnchoredPdfCropperService.crop_pdfs(pdf_files=pdf_list)
+        result = await run_blocking(AnchoredPdfCropperService.crop_pdfs, pdf_files=pdf_list, serialize_with=PYMUPDF_LOCK)
         return StreamingResponse(
             content=result["buffer"],
             media_type="application/zip",

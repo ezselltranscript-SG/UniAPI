@@ -14,6 +14,8 @@ from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Pt
 
+from app.config import AI_MAX_RETRIES, AI_REQUEST_TIMEOUT_SECONDS
+
 
 _NORM_CACHE: Dict[str, Any] = {"by_client": {}}
 _NORM_TTL_SECONDS = 300
@@ -210,7 +212,11 @@ def _ai_context_decisions(text: str, matches: List[Dict[str, Any]]) -> Dict[int,
         try:
             import anthropic
             logger.info("AI context check: sending %d match(es) to Anthropic claude-haiku", len(matches))
-            ai_client = anthropic.Anthropic(api_key=anthropic_key)
+            ai_client = anthropic.Anthropic(
+                api_key=anthropic_key,
+                timeout=AI_REQUEST_TIMEOUT_SECONDS,
+                max_retries=AI_MAX_RETRIES,
+            )
             message = ai_client.messages.create(
                 model="claude-haiku-4-5-20251001",
                 max_tokens=1024,
@@ -227,7 +233,11 @@ def _ai_context_decisions(text: str, matches: List[Dict[str, Any]]) -> Dict[int,
         try:
             import openai as openai_module
             logger.info("AI context check: sending %d match(es) to OpenAI gpt-4o-mini", len(matches))
-            oa_client = openai_module.OpenAI(api_key=openai_key)
+            oa_client = openai_module.OpenAI(
+                api_key=openai_key,
+                timeout=AI_REQUEST_TIMEOUT_SECONDS,
+                max_retries=AI_MAX_RETRIES,
+            )
             completion = oa_client.chat.completions.create(
                 model="gpt-4o-mini",
                 max_tokens=1024,

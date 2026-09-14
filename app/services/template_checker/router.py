@@ -3,6 +3,7 @@ from fastapi import APIRouter, File, UploadFile, HTTPException
 from fastapi.responses import JSONResponse, Response
 
 from .service import TemplateCheckerService
+from app.concurrency import run_blocking
 
 router = APIRouter()
 
@@ -21,7 +22,7 @@ async def detect_template(
             raise HTTPException(status_code=400, detail="File must be an image")
 
         content = await image_file.read()
-        result = TemplateCheckerService.detect_template(content)
+        result = await run_blocking(TemplateCheckerService.detect_template, content)
         template_id = str(result.get("template_id", 1))
         # Return JSON so clients can branch on template_id
         # Keep reason and other debug info in case the caller needs it

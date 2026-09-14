@@ -8,6 +8,7 @@ from fastapi.responses import FileResponse
 
 from app.config import DOWNLOADS_DIR
 from .service import PDFChunkSplitterService
+from app.concurrency import run_blocking
 
 
 router = APIRouter()
@@ -44,7 +45,12 @@ async def split_pdf_chunks(
             output_folder = os.path.join(temp_dir, folder_name)
             os.makedirs(output_folder, exist_ok=True)
 
-            result = PDFChunkSplitterService.split_by_chunk_size(pdf_path, output_folder, chunk_size)
+            result = await run_blocking(
+                PDFChunkSplitterService.split_by_chunk_size,
+                pdf_path,
+                output_folder,
+                chunk_size,
+            )
 
             persistent_zip = os.path.join(DOWNLOADS_DIR, result["zip_filename"])
             shutil.copy2(result["zip_path"], persistent_zip)
