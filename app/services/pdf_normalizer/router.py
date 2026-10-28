@@ -3,7 +3,7 @@ import os
 import re
 import unicodedata
 import zipfile
-from typing import Annotated
+from typing import Annotated, Optional
 from urllib.parse import quote
 
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile
@@ -86,8 +86,8 @@ async def normalize_pdf(
     auto_rotate: bool = Query(True, description="Apply the reviewed page rotations"),
     ensure_page_pairs: bool = Query(True, description="Apply the reviewed black missing-side pages"),
     review_mode: str = Query("vision", pattern="^(vision|heuristic)$", description="vision uses the LLM; heuristic is the non-LLM fallback"),
-    vision_provider: str | None = Query(None, pattern="^(openai|anthropic)$", description="Vision provider override; defaults to PDF_NORMALIZER_VISION_PROVIDER or OpenAI"),
-    vision_model: str | None = Query(None, description="Optional vision-model override for the selected provider"),
+    vision_provider: Optional[str] = Query(None, pattern="^(openai|anthropic)$", description="Vision provider override; defaults to PDF_NORMALIZER_VISION_PROVIDER or OpenAI"),
+    vision_model: Optional[str] = Query(None, description="Optional vision-model override for the selected provider"),
     judge: bool = Query(True, description="Have the vision model check the finished document page by page and retry the pages it flags"),
     output: str = Query("pdf", pattern="^(pdf|zip)$", description="pdf returns one normalized PDF; zip returns one PDF per letter"),
 ):
