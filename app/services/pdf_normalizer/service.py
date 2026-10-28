@@ -7,7 +7,7 @@ import fitz
 import numpy as np
 from PIL import Image
 
-from .vision import PDFVisionReviewer
+from .vision import BatchHeader, PDFVisionReviewer
 
 
 @dataclass(frozen=True)
@@ -36,7 +36,7 @@ class PDFNormalizerService:
     _PREVIEW_DPI = 100
     _MIN_AXIS_CONFIDENCE = 0.08
     _MIN_DIRECTION_CONFIDENCE = 0.03
-    _STRONG_LAYOUT_OVERRIDE_CONFIDENCE = 0.15
+    _STRONG_LOCAL_HINT_CONFIDENCE = 0.15
     _MIN_LETTERHEAD_SCORE = 0.55
     _CONSECUTIVE_HEADER_DISTANCE = 0.08
     _DIFFERENT_HEADER_DISTANCE = 0.42
@@ -50,8 +50,11 @@ class PDFNormalizerService:
         auto_rotate: bool = True,
         ensure_page_pairs: bool = True,
         review_mode: str = "vision",
+        vision_provider: str | None = None,
         vision_model: str | None = None,
         vision_reviewer: PDFVisionReviewer | None = None,
+        judge: bool = True,
+        split_letters: bool = False,
     ) -> Dict[str, Any]:
         """Return an upright PDF with an even number of pages.
 
@@ -59,6 +62,10 @@ class PDFNormalizerService:
         of its preceding scanned page. Vision review is the default because it
         can evaluate the full document sequence; image heuristics are available
         only when callers explicitly choose ``review_mode="heuristic"``.
+        ``judge`` has the vision model check the finished document page by
+        page and retry the pages it flags; it does not apply to heuristics.
+        ``split_letters`` also returns one PDF per detected letter, each with
+        its black page, in ``letter_pdfs``.
         """
         if not pdf_bytes:
             raise ValueError("The uploaded PDF is empty")
@@ -83,18 +90,32 @@ class PDFNormalizerService:
                 previews.append(preview)
 
             if review_mode == "vision":
-                plan = (vision_reviewer or PDFVisionReviewer()).review(previews, model=vision_model)
+                reviewer = vision_reviewer or PDFVisionReviewer()
+                plan = reviewer.review(
+                    previews,
+                    provider=vision_provider,
+                    model=vision_model,
+                    rotation_hints=cls._local_rotation_hints(previews) if auto_rotate else None,
+                    judge=judge and (auto_rotate or ensure_page_pairs),
+                    judge_rotations=auto_rotate,
+                    judge_page_pairs=ensure_page_pairs,
+                    read_batch_header=True,
+                )
                 if auto_rotate:
-                    corrections, rotation_sources = cls._reconcile_rotations(
-                        previews,
-                        plan.rotations,
-                    )
+                    page_numbers = range(1, source.page_count + 1)
+                    corrections = [plan.rotations[page] for page in page_numbers]
+                    rotation_sources = [plan.rotation_sources.get(page, "vision") for page in page_numbers]
                 else:
                     corrections = [0] * source.page_count
                     rotation_sources = ["disabled"] * source.page_count
                 blank_after_source_pages = plan.blank_after_source_pages if ensure_page_pairs else []
                 letter_start_pages = plan.letter_start_pages
                 review_model = plan.model
+                review_provider = plan.provider
+                judge_status = plan.judge_status
+                judge_retries = plan.judge_retries
+                judge_issues = plan.judge_issues
+                batch = plan.batch
             else:
                 analyses: list[PageAnalysis] = []
                 for page_number, preview in enumerate(previews):
@@ -114,15 +135,22 @@ class PDFNormalizerService:
                 )
                 letter_start_pages = [1]
                 review_model = "heuristic"
+                review_provider = "heuristic"
+                judge_status = "skipped"
+                judge_retries = 0
+                judge_issues = []
+                batch = BatchHeader()
 
             blank_after_page_set = set(blank_after_source_pages)
 
             normalized = fitz.open()
             applied_rotations: list[int] = []
+            output_page_of_source: dict[int, int] = {}
 
             for page_number in range(source.page_count):
                 page = source.load_page(page_number)
                 rotation = corrections[page_number]
+                output_page_of_source[page_number + 1] = normalized.page_count + 1
 
                 # insert_pdf keeps the source page vector-based. Its `rotate`
                 # argument replaces the source page's /Rotate value, so retain
@@ -144,6 +172,23 @@ class PDFNormalizerService:
                         height=last_page.rect.height,
                     )
 
+            letter_first_pages = [output_page_of_source[page] for page in letter_start_pages]
+            letter_page_ranges = list(
+                zip(
+                    letter_first_pages,
+                    [page - 1 for page in letter_first_pages[1:]] + [normalized.page_count],
+                )
+            )
+            letter_pdfs: list[bytes] = []
+            if split_letters:
+                for first, last in letter_page_ranges:
+                    letter = fitz.open()
+                    try:
+                        letter.insert_pdf(normalized, from_page=first - 1, to_page=last - 1)
+                        letter_pdfs.append(letter.tobytes(garbage=4, deflate=True))
+                    finally:
+                        letter.close()
+
             output_bytes = normalized.tobytes(garbage=4, deflate=True)
             return {
                 "pdf_bytes": output_bytes,
@@ -155,7 +200,14 @@ class PDFNormalizerService:
                 "rotation_sources": rotation_sources,
                 "letter_start_pages": letter_start_pages,
                 "review_mode": review_mode,
+                "review_provider": review_provider,
                 "review_model": review_model,
+                "judge_status": judge_status,
+                "judge_retries": judge_retries,
+                "judge_issues": judge_issues,
+                "batch": batch,
+                "letter_page_ranges": letter_page_ranges,
+                "letter_pdfs": letter_pdfs,
             }
         finally:
             source.close()
@@ -178,33 +230,20 @@ class PDFNormalizerService:
         return cls._detect_rotation_signal(image).correction
 
     @classmethod
-    def _reconcile_rotations(
-        cls,
-        previews: list[Image.Image],
-        reviewed_rotations: dict[int, int],
-    ) -> tuple[list[int], list[str]]:
-        """Validate model rotations with independent local orientation signals.
+    def _local_rotation_hints(cls, previews: list[Image.Image]) -> dict[int, int]:
+        """Return strong local orientation signals for the vision review to double-check.
 
-        Vision remains authoritative for ambiguous pages. A strong layout signal
-        can correct either a missed rotation or an unnecessary one, while a
-        successful Tesseract OSD result is always preferred.
+        These are hints only. Gray-toned scans and pages whose writing sits in
+        the lower half produce confident but wrong layout results, so a
+        disagreement earns the page a second vision look instead of overriding
+        the model.
         """
-        corrections: list[int] = []
-        sources: list[str] = []
+        hints: dict[int, int] = {}
         for page_number, preview in enumerate(previews, start=1):
-            reviewed = reviewed_rotations[page_number]
             local = cls._detect_rotation_signal(preview)
-            should_override = (
-                local.source == "tesseract"
-                or local.confidence >= cls._STRONG_LAYOUT_OVERRIDE_CONFIDENCE
-            )
-            if should_override and local.correction != reviewed:
-                corrections.append(local.correction)
-                sources.append(f"{local.source}_override")
-            else:
-                corrections.append(reviewed)
-                sources.append("vision")
-        return corrections, sources
+            if local.source == "tesseract" or local.confidence >= cls._STRONG_LOCAL_HINT_CONFIDENCE:
+                hints[page_number] = local.correction
+        return hints
 
     @classmethod
     def _detect_rotation_signal(cls, image: Image.Image) -> RotationSignal:

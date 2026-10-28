@@ -230,8 +230,11 @@ It is not a general OCR or layout-redesign service.
 | multipart `file` | Yes | — | Source PDF. |
 | query `auto_rotate` | No | `true` | Apply reviewed rotation corrections. |
 | query `ensure_page_pairs` | No | `true` | Insert reviewed black missing-side pages. |
+| query `vision_provider` | No | `openai` | `openai` or `anthropic`; selects the vision provider. |
+| query `vision_model` | No | provider default | Overrides the selected provider's vision model. |
 | query `review_mode` | No | `vision` | `vision` uses the configured vision model; `heuristic` is explicit non-LLM fallback. |
-| query `vision_model` | No | configured model | Optional model override for vision review. |
+| query `judge` | No | `true` | Vision mode only: the model checks the finished document page by page and retries the pages it flags. |
+| query `output` | No | `pdf` | `pdf` returns one normalized PDF; `zip` returns one PDF per letter (vision mode only). |
 
 ```bash
 curl --fail --remote-header-name -D normalizer-headers.txt \
@@ -248,9 +251,46 @@ curl --fail --remote-header-name -D normalizer-headers.txt \
 | `X-Rotated-Pages`, `X-Applied-Rotations` | Number and list of rotations, e.g. `2:90,5:180`. |
 | `X-Blank-Pages-Added`, `X-Blank-After-Source-Pages` | Count and positions of black pages inserted. |
 | `X-Letter-Start-Pages` | Detected 1-based letter starts. |
-| `X-Review-Mode`, `X-Review-Model` | Review strategy and model used. |
+| `X-Rotation-Overrides` | Pages whose first vision rotation was changed by the verification pass or the judge. |
+| `X-Review-Mode`, `X-Review-Provider`, `X-Review-Model` | Review strategy, provider, and model used. |
+| `X-Judge-Status` | `passed`, `issues_remaining`, `error` (the check itself failed), or `skipped`. |
+| `X-Judge-Retries` | Feedback rounds used (at most 2). |
+| `X-Judge-Issues` | Problems still seen, by output page, e.g. `10:top_points_right,13:starts_new_letter,5:letter_has_6_pages`; `batch:found_7_letters_header_says_8` when the count differs from the header. |
+| `X-Batch-Number`, `X-Batch-Received`, `X-Batch-Sheets`, `X-Batch-Letters` | Batch details read from page 1 (`X-Batch-Received` is `MM-DD`); empty when not found. |
+| `X-Letters-Found` | Number of letters detected. |
 
-Vision mode requires `OPENAI_API_KEY`; a review problem is returned as `503`.
+In vision mode the model decides every rotation. Pages it turns sideways, and
+pages where a strong local orientation signal disagrees with it, get a second
+look with the proposed rotation already applied; local signals never override
+the model on their own.
+
+With `judge=true` the model then reads the finished document page by page, with
+every page turned and the black pages in place. It flags any page that is not
+upright and any page whose letter start disagrees with the plan. Each flagged
+page goes back to the reviewer with a message describing what the judge saw,
+and the reviewer's new answer is kept. The document is judged again after each
+retry, for up to 2 retries. If problems remain, the PDF is still returned and
+`X-Judge-Status: issues_remaining` lists them. The judge does not reorder pages.
+
+In vision mode the model also reads the batch details handwritten at the top of
+page 1, such as `BATCH 5  2 Sheets  8`, and the date on the RECEIVED stamp (or
+the fax line when there is no stamp). With `judge=true`, a letter whose length
+does not match the sheet count (2 pages per sheet, after its black page) has its
+boundaries sent back for review. The header is ignored if most letters disagree
+with it, since it is then probably misread.
+
+File names use the batch details, with `XX`/`X` for anything not read:
+
+| Output | Name |
+| --- | --- |
+| `output=pdf` | `07-25-Batch5-2sheets-8letters.pdf` (`<upload>_normalized.pdf` when no batch number is found) |
+| `output=zip` | `07-25-Batch5.zip` holding `07-25-Batch5-1-8.pdf` … `07-25-Batch5-8-8.pdf`, i.e. `MM-DD-Batch#-letter position-total letters` |
+
+The total is the header's letter count when it was read, otherwise the number
+of letters found. Each letter PDF includes its black page.
+
+Vision mode requires `OPENAI_API_KEY` (or `ANTHROPIC_API_KEY` with
+`vision_provider=anthropic`); a review problem is returned as `503`.
 The vision review supports PDFs up to 80 pages.
 
 ### PDF Chunk Margin Cropper

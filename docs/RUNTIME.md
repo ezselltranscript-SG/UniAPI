@@ -174,7 +174,9 @@ Other endpoints that render PDFs: `/pdf-chunk-margin-cropper` (`dpi` query, defa
 | `AI_MAX_RETRIES` | `3` | `app/config.py` | AI SDK retries (3.1) |
 | `ANTHROPIC_API_KEY` | — | `word_normalizer/service.py` | enables Anthropic |
 | `OPENAI_API_KEY` | — | `word_normalizer/service.py`, `pdf_normalizer/vision.py` | enables OpenAI |
-| `PDF_NORMALIZER_VISION_MODEL` | `gpt-5.6-terra` | `pdf_normalizer/vision.py` | vision model |
+| `PDF_NORMALIZER_VISION_PROVIDER` | `openai` | `pdf_normalizer/vision.py` | `openai` or `anthropic` vision provider |
+| `PDF_NORMALIZER_VISION_MODEL` | `gpt-5.6-terra` | `pdf_normalizer/vision.py` | OpenAI vision model; can be overridden per request |
+| `PDF_NORMALIZER_ANTHROPIC_MODEL` | `claude-opus-5-5` | `pdf_normalizer/vision.py` | Anthropic vision model; can be overridden per request |
 | `SUPABASE_URL`, `SUPABASE_KEY` | `""` | `app/config.py` (client), `word_normalizer/service.py` (REST) | normalization rules and other lookups |
 | `POPPLER_PATH` | — | `anchored_pdf_cropper/service.py` | poppler binaries location |
 | `CORS_ORIGINS` | `*` | `app/config.py` | CORS |
