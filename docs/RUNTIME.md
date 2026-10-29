@@ -138,8 +138,14 @@ fallback provider acts as the only retry; worst case about 2 minutes per block).
 Files: `app/services/pdf_to_image/router.py`, `service.py` (CRLF line endings).
 
 * Input: multipart `file` (must end in `.pdf`), query `format` = `png` (default), `jpeg` or `jpg`.
-* Rendering: `pdf2image.convert_from_bytes(pdf_bytes)`, which runs poppler's `pdftoppm` at the library
-  default of **200 DPI**. Every page is held in memory.
+* Rendering: the PDF is written to a temp dir and rendered **one page at a time** with
+  `pdf2image.convert_from_path(..., first_page=n, last_page=n, output_folder=tmp, paths_only=True)`
+  (poppler's `pdftoppm` at the library default of **200 DPI**). pdftoppm writes the page to disk; the
+  service opens it, encodes it, adds it to the ZIP and deletes it before rendering the next page.
+* Memory: the ZIP is built in a `tempfile.TemporaryFile` and streamed back in 1 MB chunks, then closed
+  (and deleted). Peak memory per request is about one decoded page (a 3528×4575 newspaper page at
+  200 DPI is ~48 MB) plus its encoded PNG. Before 2026-10-29 every page was held in memory two or three
+  times over, and ~9 concurrent Budget conversions got the process OOM-killed on Render.
 * Output: **always a ZIP** (`converted_images.zip`), entries `page_1.png`, `page_2.png`, … The router
   docstring says a single page returns a bare image; it does not.
 * JPEG uses PIL's default quality (75) today; `format=jpeg` is accepted but no workflow uses it.
@@ -210,6 +216,8 @@ and redeploy/restart for it to apply.
 `python -m pytest tests -q`: 20 tests.
 
 * `tests/test_pdf_normalizer.py` (16): PDF normalizer behavior.
+* `tests/test_pdf_to_image.py` (3): pages are rendered one at a time and deleted from disk, the ZIP
+  lives in a temp file that is closed after streaming, and also on failure (poppler is mocked).
 * `tests/test_blocking_and_timeouts.py` (4):
   * `run_blocking` runs in parallel without a lock and serializes with one.
   * A slow conversion does not delay a health check.

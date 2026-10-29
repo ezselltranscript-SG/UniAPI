@@ -12,6 +12,20 @@ from app.concurrency import run_blocking
 # Configurar router para el servicio PDF to Image
 router = APIRouter()
 
+STREAM_CHUNK_BYTES = 1024 * 1024
+
+
+def _iter_file(file_obj, chunk_size: int = STREAM_CHUNK_BYTES):
+    """Lee el ZIP temporal por bloques y lo cierra (y borra) al terminar."""
+    try:
+        while True:
+            chunk = file_obj.read(chunk_size)
+            if not chunk:
+                break
+            yield chunk
+    finally:
+        file_obj.close()
+
 @router.get("/")
 async def read_root():
     """Endpoint de bienvenida para el servicio PDF to Image"""
@@ -66,7 +80,7 @@ async def convert_pdf(
         
         # Devolver el resultado
         return StreamingResponse(
-            content=result["content"],
+            content=_iter_file(result["content"]),
             media_type=result["media_type"],
             headers={
                 "Content-Disposition": f"attachment; filename={result['filename']}"
