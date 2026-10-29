@@ -146,6 +146,15 @@ Files: `app/services/pdf_to_image/router.py`, `service.py` (CRLF line endings).
   (and deleted). Peak memory per request is about one decoded page (a 3528×4575 newspaper page at
   200 DPI is ~48 MB) plus its encoded PNG. Before 2026-10-29 every page was held in memory two or three
   times over, and ~9 concurrent Budget conversions got the process OOM-killed on Render.
+* Concurrency cap: at most `PDF_TO_IMAGE_MAX_CONCURRENCY` (default 2) conversions run at once per
+  process. n8n sends a whole batch together (25 letters in batch 267); the rest wait on an
+  `asyncio.Semaphore` in the router, without holding a thread-pool thread. Conversions are CPU-bound, so
+  the queue does not lower total throughput, but the last letters of a big batch wait longer and can hit
+  n8n's 300 s timeout. A request whose client has disconnected by the time it gets a slot is skipped
+  (499) so a timed-out try does not run next to its retry.
+* Freed memory: after each conversion `app/memory.py` calls glibc `malloc_trim(0)`, and the Dockerfile
+  sets `MALLOC_ARENA_MAX=2`. Without them glibc kept the memory freed by worker threads and the process
+  idled at ~1.1 GB after a batch (174 MB after a fresh deploy).
 * Output: **always a ZIP** (`converted_images.zip`), entries `page_1.png`, `page_2.png`, … The router
   docstring says a single page returns a bare image; it does not.
 * JPEG uses PIL's default quality (75) today; `format=jpeg` is accepted but no workflow uses it.
@@ -188,6 +197,8 @@ Other endpoints that render PDFs: `/pdf-chunk-margin-cropper` (`dpi` query, defa
 | `CORS_ORIGINS` | `*` | `app/config.py` | CORS |
 | `API_HOST`, `API_PORT`, `API_RELOAD` | `0.0.0.0`, `8000`, `True` | `app/config.py` | only for `python main.py`; Render uses its own start command |
 | `WEB_CONCURRENCY` | `1` | uvicorn | worker processes (2.1) |
+| `PDF_TO_IMAGE_MAX_CONCURRENCY` | `2` | `app/config.py` | parallel `/pdf-to-image` conversions per process (5) |
+| `MALLOC_ARENA_MAX` | `2` (Dockerfile) | glibc | fewer per-thread malloc arenas, so freed memory is reused (5) |
 
 Values in `app/config.py` and module constants are read once at startup. Change the variable in Render
 and redeploy/restart for it to apply.

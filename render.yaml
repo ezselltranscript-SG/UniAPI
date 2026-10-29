@@ -20,4 +20,9 @@ services:
       # the RAM (the heavy endpoints already run off the event loop).
       - key: WEB_CONCURRENCY
         value: "1"
+      # /pdf-to-image conversions allowed at once per process; the rest queue.
+      # Each one holds ~100 MB, and a full n8n batch at once got the process
+      # OOM-killed. Raise only if the plan has the RAM (and the CPU to use it).
+      - key: PDF_TO_IMAGE_MAX_CONCURRENCY
+        value: "2"
     autoDeploy: true

@@ -1,11 +1,12 @@
+import asyncio
 import os
 import tempfile
 import shutil
-from fastapi import APIRouter, File, UploadFile, HTTPException, Form, Query
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, File, UploadFile, HTTPException, Form, Query, Request
+from fastapi.responses import Response, StreamingResponse
 from typing import Optional
 
-from app.config import DOWNLOADS_DIR
+from app.config import DOWNLOADS_DIR, PDF_TO_IMAGE_MAX_CONCURRENCY
 from .service import PDFToImageService
 from app.concurrency import run_blocking
 
@@ -13,6 +14,10 @@ from app.concurrency import run_blocking
 router = APIRouter()
 
 STREAM_CHUNK_BYTES = 1024 * 1024
+
+# Requests beyond the limit wait here, on the event loop, without holding a
+# worker thread (see PDF_TO_IMAGE_MAX_CONCURRENCY in app/config.py).
+CONVERSION_SLOTS = asyncio.Semaphore(PDF_TO_IMAGE_MAX_CONCURRENCY)
 
 
 def _iter_file(file_obj, chunk_size: int = STREAM_CHUNK_BYTES):
@@ -42,6 +47,7 @@ async def read_root():
 
 @router.post("/convert/", summary="Convertir PDF a imágenes")
 async def convert_pdf(
+    request: Request,
     file: UploadFile = File(...),
     format: str = Query("png", description="Formato de salida (png, jpeg, jpg)")
 ):
@@ -72,11 +78,16 @@ async def convert_pdf(
         
         # Usar el servicio para convertir el PDF a imágenes
         pdf_to_image_service = PDFToImageService()
-        result = await run_blocking(
-            pdf_to_image_service.convert_pdf_to_images,
-            pdf_bytes=pdf_bytes,
-            format=format,
-        )
+        async with CONVERSION_SLOTS:
+            # Si n8n se cansó de esperar en la cola (timeout) ya habrá reintentado;
+            # no gastar CPU ni memoria en una respuesta que nadie va a leer.
+            if await request.is_disconnected():
+                return Response(status_code=499)
+            result = await run_blocking(
+                pdf_to_image_service.convert_pdf_to_images,
+                pdf_bytes=pdf_bytes,
+                format=format,
+            )
         
         # Devolver el resultado
         return StreamingResponse(

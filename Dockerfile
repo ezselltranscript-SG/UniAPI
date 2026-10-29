@@ -3,6 +3,11 @@ FROM python:3.12-slim-bookworm
 # Evitar interacciones durante la instalación de paquetes
 ENV DEBIAN_FRONTEND=noninteractive
 
+# glibc crea una arena de memoria por hilo y no devuelve al SO lo liberado en
+# ellas: tras un lote de conversiones el proceso quedaba en ~1.1 GB en reposo.
+# Con 2 arenas la memoria liberada vuelve a estar disponible (ver app/memory.py).
+ENV MALLOC_ARENA_MAX=2
+
 # Configurar repositorios y aceptar EULA de Microsoft Fonts
 RUN echo "deb http://deb.debian.org/debian/ bookworm main contrib" > /etc/apt/sources.list.d/contrib.list && \
     apt-get update && \

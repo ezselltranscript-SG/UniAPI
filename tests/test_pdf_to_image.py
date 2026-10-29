@@ -3,6 +3,8 @@ import asyncio
 import io
 import os
 import tempfile
+import threading
+import time
 import zipfile
 
 import httpx
@@ -92,6 +94,45 @@ def test_endpoint_streams_the_zip_and_closes_the_temp_file(fake_poppler, temp_fi
     assert response.headers["content-type"] == "application/zip"
     _assert_pages(response.content)
     assert len(temp_files) == 1 and temp_files[0].closed
+
+
+def test_endpoint_runs_at_most_the_configured_number_of_conversions(monkeypatch):
+    from main import app
+    from app.services.pdf_to_image import router as pdf_router
+
+    lock = threading.Lock()
+    running = {"now": 0, "max": 0}
+
+    def slow_convert(self, pdf_bytes, format="png"):
+        with lock:
+            running["now"] += 1
+            running["max"] = max(running["max"], running["now"])
+        time.sleep(0.3)
+        with lock:
+            running["now"] -= 1
+        return {"content": io.BytesIO(b"zip"), "media_type": "application/zip", "filename": "converted_images.zip"}
+
+    monkeypatch.setattr(pdf_service.PDFToImageService, "convert_pdf_to_images", slow_convert)
+    monkeypatch.setattr(pdf_router, "CONVERSION_SLOTS", asyncio.Semaphore(2))
+
+    async def scenario():
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            return await asyncio.gather(*[
+                client.post("/pdf-to-image/convert/", files={"file": ("a.pdf", b"%PDF-1.4", "application/pdf")})
+                for _ in range(6)
+            ])
+
+    responses = asyncio.run(scenario())
+
+    assert all(r.status_code == 200 for r in responses)
+    assert running["max"] == 2
+
+
+def test_release_memory_is_safe_on_any_platform():
+    from app.memory import release_memory
+
+    release_memory()
 
 
 def test_temp_file_is_closed_when_conversion_fails(monkeypatch, temp_files):

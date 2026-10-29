@@ -24,6 +24,12 @@ API_RELOAD = os.getenv("API_RELOAD", "True").lower() == "true"
 AI_REQUEST_TIMEOUT_SECONDS = float(os.getenv("AI_REQUEST_TIMEOUT_SECONDS", "60"))
 AI_MAX_RETRIES = int(os.getenv("AI_MAX_RETRIES", "3"))
 
+# /pdf-to-image conversions allowed at once per process. n8n sends a whole batch
+# of letters together; each conversion holds ~100 MB (one decoded newspaper page
+# plus pdftoppm), and running them all in parallel got the process OOM-killed.
+# Conversions are CPU-bound, so queueing them costs no total throughput.
+PDF_TO_IMAGE_MAX_CONCURRENCY = int(os.getenv("PDF_TO_IMAGE_MAX_CONCURRENCY", "2"))
+
 # CORS settings
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*").split(",")
 

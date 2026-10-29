@@ -6,6 +6,8 @@ from typing import List, Dict, Any, Optional
 from pdf2image import convert_from_path, pdfinfo_from_path
 from PIL import Image
 
+from app.memory import release_memory
+
 class PDFToImageService:
     """
     Servicio para convertir archivos PDF a imágenes (PNG, JPEG)
@@ -71,6 +73,8 @@ class PDFToImageService:
         except Exception:
             zip_file_obj.close()
             raise
+        finally:
+            release_memory()
 
         return {
             "is_single_image": False,
